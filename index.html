@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>Plennus Clinic</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ========== LOGIN ========== -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>PLENNUS CLINIC</h1>
+        <p>Sistema de Gestão de Clínicas e Consultórios</p>
+      </div>
+      <div class="login-body">
+        <div class="form-group">
+          <label>Usuário</label>
+          <input type="text" id="login-user" value="admin" placeholder="Digite seu usuário">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="login-pass" value="123" placeholder="Digite sua senha">
+        </div>
+        <button class="btn btn-primary" onclick="fazerLogin()">ENTRAR</button>
+        <p class="login-hint">Use as credenciais definidas na primeira execução.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== APP ========== -->
+  <div id="app-screen">
+    <div class="app-container">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <h2>PLENNUS</h2>
+          <span>CLINIC</span>
+        </div>
+        <div class="sidebar-divider"></div>
+        <nav class="sidebar-menu" id="sidebar-menu">
+          <div class="menu-item active" data-page="dashboard" data-roles="admin,medico,recepcao">🏠  Dashboard</div>
+          <div class="menu-item" data-page="agenda" data-roles="admin,medico,recepcao">📅  Agenda</div>
+          <div class="menu-item" data-page="prontuario" data-roles="admin,medico" id="menu-prontuario">📋  Prontuário (PEP)</div>
+          <div class="menu-item" data-page="pacientes" data-roles="admin,medico,recepcao">👤  Pacientes</div>
+          <div class="menu-item" data-page="profissionais" data-roles="admin">🩺  Profissionais</div>
+          <div class="menu-item" data-page="convenios" data-roles="admin,recepcao">🏥  Convênios</div>
+          <div class="menu-item" data-page="documentos" data-roles="admin,medico">📄  Documentos & PDF</div>
+          <div class="menu-item" data-page="caixa" data-roles="admin,recepcao">💰  Caixa</div>
+          <div class="menu-item" data-page="repasses" data-roles="admin">💵  Repasses</div>
+          <div class="menu-item" data-page="configuracoes" data-roles="admin,medico,recepcao">⚙️  Configurações</div>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-name" id="user-display">Olá, Administrador</div>
+          <div id="user-role-badge" style="margin-bottom:10px;"></div>
+          <button class="btn btn-sm" style="width:100%;background:#8B0000;color:white;" onclick="fazerLogout()">Sair</button>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main-content">
+        <!-- DASHBOARD -->
+        <div class="page active" id="page-dashboard">
+          <h1 class="page-title">Dashboard</h1>
+          <div class="stats-row" id="stats-row">
+            <div class="stat-card blue"><div class="label">Pacientes</div><div class="value" id="stat-pacientes">0</div></div>
+            <div class="stat-card green"><div class="label">Profissionais</div><div class="value" id="stat-profissionais">0</div></div>
+            <div class="stat-card orange"><div class="label">Consultas Hoje</div><div class="value" id="stat-consultas">0</div></div>
+            <div class="stat-card pink"><div class="label">Saldo Caixa</div><div class="value" id="stat-saldo">R$ 0,00</div></div>
+          </div>
+          <div class="card" style="text-align:center;padding:50px 20px;">
+            <h2 style="color:var(--primary);margin-bottom:12px;">Bem-vindo ao Plennus Clinic</h2>
+            <p class="text-muted">Sistema de Gestão de Clínicas e Consultórios<br>
+              Versão Electron • Offline • Sem mensalidades<br><br>
+              Use o menu lateral para navegar entre os módulos.</p>
+          </div>
+        </div>
+
+        <!-- AGENDA -->
+        <div class="page" id="page-agenda">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <h1 class="page-title" style="margin-bottom:0;">Agenda & Sala de Espera</h1>
+            <button class="btn btn-primary btn-sm" onclick="toggleFormAgendamento()">+ Novo Agendamento</button>
+          </div>
+
+          <!-- Barra de Controles e Filtros -->
+          <div class="agenda-toolbar">
+            <div class="agenda-date-nav">
+              <button class="btn btn-secondary btn-sm" onclick="navegarDataAgenda(-1)">◀</button>
+              <button class="btn btn-secondary btn-sm" onclick="irParaHojeAgenda()">Hoje</button>
+              <button class="btn btn-secondary btn-sm" onclick="navegarDataAgenda(1)">▶</button>
+              <input type="date" id="agenda-data-filtro" onchange="aoMudarDataAgenda()">
+              <span id="agenda-data-extenso" style="font-weight:700;color:var(--primary);margin-left:6px;"></span>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <label class="text-muted" style="margin-bottom:0;">Profissional:</label>
+              <select id="agenda-filtro-prof" style="min-width:180px;height:36px;padding:0 10px;border-radius:6px;" onchange="recarregarVisaoAgendaAtual()"></select>
+            </div>
+          </div>
+
+          <!-- Formulário Retrátil de Novo Agendamento -->
+          <div class="card" id="card-novo-agendamento" style="display:none;border-left:4px solid var(--primary);">
+            <div class="card-title" style="display:flex;justify-content:space-between;">
+              <span>Agendar Nova Consulta</span>
+              <button class="btn btn-sm btn-secondary" onclick="toggleFormAgendamento()" style="height:24px;padding:0 8px;">✕ Fechar</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Paciente *</label><select id="ag-paciente"></select></div>
+              <div class="form-group"><label>Profissional *</label><select id="ag-profissional"></select></div>
+              <div class="form-group" style="max-width:140px;"><label>Data (DD/MM/AAAA) *</label><input type="text" id="ag-data" placeholder="DD/MM/AAAA"></div>
+              <div class="form-group" style="max-width:100px;"><label>Hora *</label><input type="text" id="ag-hora" placeholder="08:00"></div>
+              <div class="form-group" style="max-width:140px;"><label>Status</label>
+                <select id="ag-status">
+                  <option value="agendado">Agendado</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="espera">Na Recepção (Espera)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Observações / Motivo</label><input type="text" id="ag-obs" placeholder="Ex: Retorno, primeira consulta..."></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="agendarConsulta()">Confirmar Agendamento</button>
+              <button class="btn btn-secondary btn-sm" onclick="toggleFormAgendamento()">Cancelar</button>
+            </div>
+          </div>
+
+          <!-- Abas de Visualização da Agenda -->
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="visual">🕒 Grade Diária</button>
+            <button class="tab-btn" data-tab="espera">👥 Sala de Espera (Fila)</button>
+            <button class="tab-btn" data-tab="lista">📋 Lista Completa</button>
+            <button class="tab-btn" data-tab="grade">⚙️ Grade de Horários</button>
+          </div>
+
+          <!-- ABA 1: GRADE VISUAL DIÁRIA -->
+          <div class="tab-content active" id="tab-visual">
+            <div class="timeline-view-container">
+              <div id="timeline-slots-container">
+                <!-- Horários gerados dinamicamente via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA 2: SALA DE ESPERA (KANBAN) -->
+          <div class="tab-content" id="tab-espera">
+            <div class="espera-board">
+              <!-- Coluna 1: Agendados para Hoje -->
+              <div class="espera-column">
+                <div class="espera-column-header">
+                  <span>📅 Agendados Hoje</span>
+                  <span id="badge-count-agendados" class="badge-role badge-admin">0</span>
+                </div>
+                <div id="coluna-agendados" class="espera-list"></div>
+              </div>
+
+              <!-- Coluna 2: Na Sala de Espera -->
+              <div class="espera-column" style="background:#FFFDE7;border-color:#FFF59D;">
+                <div class="espera-column-header" style="color:#E65100;border-bottom-color:#FFE082;">
+                  <span>⏳ Na Sala de Espera (Presentes)</span>
+                  <span id="badge-count-espera" class="badge-role badge-recepcao">0</span>
+                </div>
+                <div id="coluna-espera" class="espera-list"></div>
+              </div>
+
+              <!-- Coluna 3: Em Atendimento & Realizados -->
+              <div class="espera-column" style="background:#F1F8E9;border-color:#C8E6C9;">
+                <div class="espera-column-header" style="color:#2E7D32;border-bottom-color:#A5D6A7;">
+                  <span>🩺 Atendimento & Finalizados</span>
+                  <span id="badge-count-finalizados" class="badge-role badge-medico">0</span>
+                </div>
+                <div id="coluna-atendidos" class="espera-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA 3: LISTA COMPLETA -->
+          <div class="tab-content" id="tab-lista">
+            <div class="card">
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>ID</th><th>Data</th><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Status</th><th>Ações</th></tr></thead>
+                  <tbody id="tabela-agenda"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA 4: GRADE DE HORÁRIOS -->
+          <div class="tab-content" id="tab-grade">
+            <div class="card">
+              <div class="form-row">
+                <div class="form-group"><label>Profissional</label><select id="grade-prof"></select></div>
+                <div class="form-group" style="max-width:140px;"><label>Dia da Semana</label>
+                  <select id="grade-dia">
+                    <option value="0">Segunda</option><option value="1">Terça</option>
+                    <option value="2">Quarta</option><option value="3">Quinta</option>
+                    <option value="4">Sexta</option><option value="5">Sábado</option>
+                    <option value="6">Domingo</option>
+                  </select>
+                </div>
+                <div class="form-group" style="max-width:90px;"><label>Início</label><input type="text" id="grade-inicio" placeholder="08:00"></div>
+                <div class="form-group" style="max-width:90px;"><label>Fim</label><input type="text" id="grade-fim" placeholder="18:00"></div>
+                <div class="form-group" style="max-width:100px;"><label>Intervalo (min)</label><input type="number" id="grade-intervalo" value="30"></div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary btn-sm" onclick="salvarGrade()">Salvar Grade</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>ID</th><th>Profissional</th><th>Dia</th><th>Início</th><th>Fim</th><th>Intervalo</th><th>Ações</th></tr></thead>
+                  <tbody id="tabela-grade"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRONTUÁRIO ELETRÔNICO (PEP) -->
+        <div class="page" id="page-prontuario">
+          <h1 class="page-title">Prontuário Eletrônico do Paciente (PEP)</h1>
+
+          <!-- Seleção de Paciente e Profissional -->
+          <div class="card">
+            <div class="form-row" style="align-items:flex-end;">
+              <div class="form-group" style="flex:2;">
+                <label>Selecionar Paciente *</label>
+                <select id="pep-paciente" onchange="selecionarPacientePep()"></select>
+              </div>
+              <div class="form-group" style="flex:1.5;">
+                <label>Profissional Responsável *</label>
+                <select id="pep-profissional"></select>
+              </div>
+              <div class="form-group" style="max-width:180px;">
+                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="novoAtendimentoPep()">+ Novo Atendimento</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Banner Resumo e Alertas do Paciente -->
+          <div id="pep-patient-card" class="pep-header-card" style="display:none;">
+            <div class="pep-patient-info">
+              <div><span class="text-muted">Paciente:</span> <strong id="pep-display-nome">-</strong></div>
+              <div><span class="text-muted">Idade:</span> <span id="pep-display-idade">-</span></div>
+              <div><span class="text-muted">CPF:</span> <span id="pep-display-cpf">-</span></div>
+              <div><span class="text-muted">Tipo Sanguíneo:</span> <span id="pep-display-sangue">-</span></div>
+              <div><span class="text-muted">Telefone:</span> <span id="pep-display-tel">-</span></div>
+            </div>
+
+            <!-- Alerta de Alergias -->
+            <div id="pep-alergia-alert" class="pep-alert-box">
+              <div id="pep-alergia-text">⚠️ ALERGIAS: Nenhuma alergia informada</div>
+              <button class="btn btn-sm btn-secondary" onclick="editarAlergiasRapido()" style="height:28px;padding:0 8px;font-size:11px;">Editar Alergias</button>
+            </div>
+
+            <div style="margin-top:8px;font-size:13px;color:#555;">
+              <strong>Comorbidades / Uso Contínuo:</strong> <span id="pep-display-comorbidades">Nenhuma registrada</span>
+            </div>
+          </div>
+
+          <!-- Layout SOAP e Linha do Tempo -->
+          <div class="pep-container" id="pep-corpo" style="display:none;">
+            <!-- Coluna 1: Formulário SOAP do Atendimento -->
+            <div class="card">
+              <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Evolução Clínica Atual (Método SOAP)</span>
+                <span class="text-muted" id="pep-data-atendimento" style="font-size:12px;">Data: Hoje</span>
+              </div>
+
+              <input type="hidden" id="pep-atendimento-id">
+
+              <div class="form-row">
+                <div class="form-group" style="max-width:200px;">
+                  <label>Tipo de Atendimento</label>
+                  <select id="pep-tipo-atendimento">
+                    <option value="Consulta">Primeira Consulta</option>
+                    <option value="Retorno">Retorno</option>
+                    <option value="Urgência">Urgência / Encaixe</option>
+                    <option value="Teleconsulta">Teleconsulta</option>
+                    <option value="Procedimento">Procedimento / Exame</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- S - Subjetivo -->
+              <div class="soap-section">
+                <div class="soap-title"><span>S</span> Subjetivo (Queixa Principal & HDA)</div>
+                <div class="form-group">
+                  <textarea id="pep-subjetivo" placeholder="Descreva o motivo da consulta, sintomas relatados pelo paciente, início e evolução do quadro..."></textarea>
+                </div>
+              </div>
+
+              <!-- O - Objetivo -->
+              <div class="soap-section">
+                <div class="soap-title"><span>O</span> Objetivo (Sinais Vitais & Exame Físico)</div>
+                <div class="vitals-grid">
+                  <div class="form-group">
+                    <label>PA (mmHg)</label>
+                    <input type="text" id="pep-pa" placeholder="120/80">
+                  </div>
+                  <div class="form-group">
+                    <label>FC (bpm)</label>
+                    <input type="number" id="pep-fc" placeholder="75">
+                  </div>
+                  <div class="form-group">
+                    <label>Temp (°C)</label>
+                    <input type="text" id="pep-temp" placeholder="36.5">
+                  </div>
+                  <div class="form-group">
+                    <label>Peso (kg)</label>
+                    <input type="number" step="0.1" id="pep-peso" placeholder="70" oninput="calcularImcPep()">
+                  </div>
+                  <div class="form-group">
+                    <label>Altura (m)</label>
+                    <input type="number" step="0.01" id="pep-altura" placeholder="1.75" oninput="calcularImcPep()">
+                  </div>
+                  <div class="form-group">
+                    <label>IMC</label>
+                    <input type="text" id="pep-imc" readonly style="background:#f9f9f9;font-weight:700;">
+                    <div id="pep-imc-tag"></div>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top:8px;">
+                  <label>Exame Físico / Achados Clínicos</label>
+                  <textarea id="pep-objetivo" placeholder="Bom estado geral, orientado, ausculta cardíaca e pulmonar normais..."></textarea>
+                </div>
+              </div>
+
+              <!-- A - Avaliação -->
+              <div class="soap-section">
+                <div class="soap-title"><span>A</span> Avaliação (Diagnóstico & CID-10)</div>
+                <div class="form-row">
+                  <div class="form-group" style="max-width:140px;">
+                    <label>CID-10</label>
+                    <input type="text" id="pep-cid10" placeholder="Ex: I10">
+                  </div>
+                  <div class="form-group">
+                    <label>Hipótese Diagnóstica / Impressão Clínica</label>
+                    <input type="text" id="pep-avaliacao" placeholder="Ex: Hipertensão Arterial Sistêmica Estágio 1">
+                  </div>
+                </div>
+              </div>
+
+              <!-- P - Plano & Prescrição -->
+              <div class="soap-section">
+                <div class="soap-title"><span>P</span> Plano Terapêutico & Conduta</div>
+                <div class="form-group">
+                  <textarea id="pep-plano" placeholder="Orientações de mudança de estilo de vida, solicitação de exames de rotina, retorno em 30 dias..."></textarea>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                  <label style="font-weight:700;color:var(--primary);">💊 Prescrição Médica / Medicamentos</label>
+                  <textarea id="pep-prescricao" style="min-height:90px;" placeholder="Uso Oral:&#10;1) Dipirona 500mg ----------------- Tomar 1 comprimido de 6/6h se dor ou febre.&#10;2) Amoxicilina 500mg ------------- Tomar 1 cápsula de 8/8h por 7 dias."></textarea>
+                </div>
+              </div>
+
+              <div class="form-actions" style="justify-content:space-between;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-sm" onclick="salvarAtendimentoPep()">💾 Salvar Atendimento</button>
+                  <button class="btn btn-success btn-sm" onclick="gerarPdfReceitaPep()">🖨️ Imprimir Receita (PDF)</button>
+                  <button class="btn btn-info btn-sm" onclick="gerarPdfAtendimentoPep()">📄 Imprimir Resumo (PDF)</button>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="limparFormularioPep()">Limpar</button>
+              </div>
+            </div>
+
+            <!-- Coluna 2: Linha do Tempo do Paciente -->
+            <div class="card">
+              <div class="card-title">Linha do Tempo (Consultas Anteriores)</div>
+              <p class="text-muted mb-10">Histórico de atendimentos médicos registrados para este paciente.</p>
+              <div id="pep-timeline" class="timeline-list">
+                <div class="text-muted" style="text-align:center;padding:30px 0;">Selecione um paciente para carregar o histórico.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PACIENTES -->
+        <div class="page" id="page-pacientes">
+          <h1 class="page-title">Cadastro de Pacientes</h1>
+          <div class="card">
+            <input type="hidden" id="pac-id">
+            <div class="form-row">
+              <div class="form-group"><label>Nome completo *</label><input type="text" id="pac-nome"></div>
+              <div class="form-group" style="max-width:160px;"><label>CPF</label><input type="text" id="pac-cpf" placeholder="000.000.000-00"></div>
+              <div class="form-group" style="max-width:130px;"><label>Data Nasc.</label><input type="text" id="pac-nasc" placeholder="DD/MM/AAAA"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:160px;"><label>Celular</label><input type="text" id="pac-celular" placeholder="(00) 00000-0000"></div>
+              <div class="form-group" style="max-width:160px;"><label>Telefone</label><input type="text" id="pac-telefone"></div>
+              <div class="form-group"><label>E-mail</label><input type="email" id="pac-email"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:110px;"><label>CEP</label><input type="text" id="pac-cep"></div>
+              <div class="form-group"><label>Logradouro</label><input type="text" id="pac-logradouro"></div>
+              <div class="form-group" style="max-width:80px;"><label>Número</label><input type="text" id="pac-numero"></div>
+              <div class="form-group" style="max-width:150px;"><label>Bairro</label><input type="text" id="pac-bairro"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:180px;"><label>Cidade</label><input type="text" id="pac-cidade"></div>
+              <div class="form-group" style="max-width:60px;"><label>UF</label><input type="text" id="pac-uf" maxlength="2"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:140px;">
+                <label>Sexo</label>
+                <select id="pac-sexo">
+                  <option value="">Não informado</option>
+                  <option value="F">Feminino</option>
+                  <option value="M">Masculino</option>
+                </select>
+              </div>
+              <div class="form-group" style="max-width:130px;">
+                <label>Tipo Sanguíneo</label>
+                <select id="pac-tipo-sanguineo">
+                  <option value="">Não informado</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="color:var(--danger);font-weight:700;">⚠️ Alergias Conhecidas</label>
+                <input type="text" id="pac-alergias" placeholder="Ex: Penicilina, Dipirona, AINEs...">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Comorbidades / Antecedentes Clínicos</label>
+                <input type="text" id="pac-comorbidades" placeholder="Ex: Hipertensão, Diabetes, Asma...">
+              </div>
+              <div class="form-group">
+                <label>Medicamentos de Uso Contínuo</label>
+                <input type="text" id="pac-medicamentos" placeholder="Ex: Losartana 50mg, Levotiroxina 50mcg...">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Observações Gerais</label><input type="text" id="pac-obs"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="salvarPaciente()">Salvar Paciente</button>
+              <button class="btn btn-secondary btn-sm" onclick="limparPaciente()">Limpar</button>
+              <button class="btn btn-danger btn-sm" onclick="excluirPaciente()">Excluir</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrapper">
+              <table>
+                <thead><tr><th>ID</th><th>Nome</th><th>CPF</th><th>Celular</th><th>Alergias</th><th>Ações</th></tr></thead>
+                <tbody id="tabela-pacientes"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROFISSIONAIS -->
+        <div class="page" id="page-profissionais">
+          <h1 class="page-title">Cadastro de Profissionais</h1>
+          <div class="card">
+            <input type="hidden" id="prof-id">
+            <div class="form-row">
+              <div class="form-group"><label>Nome *</label><input type="text" id="prof-nome"></div>
+              <div class="form-group"><label>Especialidade</label><input type="text" id="prof-esp"></div>
+              <div class="form-group" style="max-width:120px;"><label>CRM</label><input type="text" id="prof-crm"></div>
+              <div class="form-group" style="max-width:140px;"><label>Telefone</label><input type="text" id="prof-tel"></div>
+              <div class="form-group" style="max-width:100px;"><label>% Repasse</label><input type="number" id="prof-perc" value="30"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="salvarProfissional()">Salvar</button>
+              <button class="btn btn-secondary btn-sm" onclick="limparProfissional()">Limpar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrapper">
+              <table>
+                <thead><tr><th>ID</th><th>Nome</th><th>Especialidade</th><th>CRM</th><th>Telefone</th><th>% Repasse</th></tr></thead>
+                <tbody id="tabela-profissionais"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONVÊNIOS -->
+        <div class="page" id="page-convenios">
+          <h1 class="page-title">Convênios e Procedimentos</h1>
+          <div class="card">
+            <div class="card-title">Novo Convênio</div>
+            <input type="hidden" id="conv-id">
+            <div class="form-row">
+              <div class="form-group"><label>Nome *</label><input type="text" id="conv-nome"></div>
+              <div class="form-group" style="max-width:120px;"><label>Código</label><input type="text" id="conv-codigo"></div>
+              <div class="form-group" style="max-width:140px;"><label>Telefone</label><input type="text" id="conv-tel"></div>
+              <div class="form-group"><label>Contato</label><input type="text" id="conv-contato"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="salvarConvenio()">Salvar Convênio</button>
+              <button class="btn btn-secondary btn-sm" onclick="limparConvenio()">Limpar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Novo Procedimento</div>
+            <div class="form-row">
+              <div class="form-group"><label>Nome do Procedimento</label><input type="text" id="proc-nome"></div>
+              <div class="form-group" style="max-width:140px;"><label>Valor Particular (R$)</label><input type="text" id="proc-valor"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="salvarProcedimento()">Adicionar Procedimento</button>
+            </div>
+          </div>
+          <div class="form-row" style="gap:16px;">
+            <div class="card" style="flex:1;">
+              <div class="card-title">Convênios</div>
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>ID</th><th>Nome</th><th>Código</th><th>Telefone</th></tr></thead>
+                  <tbody id="tabela-convenios"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card" style="flex:1;">
+              <div class="card-title">Procedimentos</div>
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>ID</th><th>Nome</th><th>Valor</th></tr></thead>
+                  <tbody id="tabela-procedimentos"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOCUMENTOS -->
+        <div class="page" id="page-documentos">
+          <h1 class="page-title">Emissão de Documentos Clínicos & PDF</h1>
+          <div class="card">
+            <div class="form-row">
+              <div class="form-group"><label>Tipo de Documento</label><select id="doc-tipo" onchange="carregarTemplate()"></select></div>
+              <div class="form-group"><label>Paciente</label><select id="doc-paciente"></select></div>
+              <div class="form-group"><label>Profissional</label><select id="doc-profissional"></select></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="gerarDocumento()">Preencher Dados</button>
+              <button class="btn btn-success btn-sm" onclick="imprimirDocumentoAtual()">🖨️ Visualizar & Imprimir</button>
+              <button class="btn btn-info btn-sm" onclick="exportarDocumentoPdf()">📄 Exportar PDF Timbrado</button>
+              <button class="btn btn-secondary btn-sm" onclick="salvarDocumentoTxt()">Salvar .txt</button>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <label class="text-muted" style="margin-bottom:0;">Editor de Conteúdo</label>
+              <span class="text-muted" style="font-size:11px;">Você pode editar o texto livremente antes de imprimir</span>
+            </div>
+            <textarea id="doc-editor"></textarea>
+          </div>
+        </div>
+
+        <!-- CAIXA -->
+        <div class="page" id="page-caixa">
+          <h1 class="page-title">Controle de Caixa</h1>
+          <div class="stats-row">
+            <div class="stat-card green"><div class="label">Entradas</div><div class="value" id="cx-entradas">R$ 0,00</div></div>
+            <div class="stat-card pink"><div class="label">Saídas</div><div class="value" id="cx-saidas">R$ 0,00</div></div>
+            <div class="stat-card blue"><div class="label">Saldo</div><div class="value" id="cx-saldo">R$ 0,00</div></div>
+          </div>
+          <div class="card">
+            <div class="form-row">
+              <div class="form-group" style="max-width:120px;"><label>Tipo</label>
+                <select id="cx-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
+              </div>
+              <div class="form-group"><label>Descrição</label><input type="text" id="cx-desc"></div>
+              <div class="form-group" style="max-width:120px;"><label>Valor (R$)</label><input type="text" id="cx-valor"></div>
+              <div class="form-group" style="max-width:130px;"><label>Forma Pgto</label>
+                <select id="cx-forma">
+                  <option>Dinheiro</option><option>PIX</option><option>Cartão</option><option>Cheque</option><option>Outros</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="registrarCaixa()">Registrar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrapper">
+              <table>
+                <thead><tr><th>ID</th><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Forma</th></tr></thead>
+                <tbody id="tabela-caixa"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPASSES -->
+        <div class="page" id="page-repasses">
+          <h1 class="page-title">Controle de Repasses e Pró-Labores</h1>
+          <div class="card">
+            <div class="form-row">
+              <div class="form-group"><label>Profissional</label><select id="rep-prof"></select></div>
+              <div class="form-group" style="max-width:120px;"><label>Período Início</label><input type="text" id="rep-inicio" placeholder="DD/MM/AAAA"></div>
+              <div class="form-group" style="max-width:120px;"><label>Período Fim</label><input type="text" id="rep-fim" placeholder="DD/MM/AAAA"></div>
+              <div class="form-group" style="max-width:130px;"><label>Valor Bruto (R$)</label><input type="text" id="rep-bruto"></div>
+              <div class="form-group" style="max-width:90px;"><label>% Repasse</label><input type="number" id="rep-perc" value="30"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="registrarRepasse()">Calcular e Registrar</button>
+              <button class="btn btn-success btn-sm" onclick="marcarRepassePago()">Marcar como Pago</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrapper">
+              <table>
+                <thead><tr><th>ID</th><th>Profissional</th><th>Período</th><th>Bruto</th><th>%</th><th>Repasse</th><th>Status</th><th>Pagamento</th></tr></thead>
+                <tbody id="tabela-repasses"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONFIGURAÇÕES -->
+        <div class="page" id="page-configuracoes">
+          <h1 class="page-title">Configurações e Personalização</h1>
+          
+          <div class="card">
+            <div class="card-title">Identidade da Clínica (Cabeçalho de Documentos PDF)</div>
+            <div class="form-row">
+              <div class="form-group"><label>Nome da Clínica</label><input type="text" id="cfg-nome"></div>
+              <div class="form-group"><label>CNPJ</label><input type="text" id="cfg-cnpj" placeholder="00.000.000/0001-00"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Endereço Completo</label><input type="text" id="cfg-endereco" placeholder="Rua, número, sala, bairro"></div>
+              <div class="form-group" style="max-width:180px;"><label>Cidade / UF</label><input type="text" id="cfg-cidade" placeholder="São Paulo - SP"></div>
+              <div class="form-group" style="max-width:180px;"><label>Telefone / WhatsApp</label><input type="text" id="cfg-telefone" placeholder="(11) 99999-9999"></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" onclick="salvarConfig()">Salvar Identidade</button>
+            </div>
+          </div>
+
+          <div class="card" id="card-usuarios-gestao">
+            <div class="card-title">Gerenciamento de Operadores / Usuários (Perfis de Acesso)</div>
+            <div class="form-row">
+              <div class="form-group"><label>Nome Completo</label><input type="text" id="usr-nome" placeholder="Ex: Dra. Mariana"></div>
+              <div class="form-group" style="max-width:150px;"><label>Login (Usuário)</label><input type="text" id="usr-login" placeholder="Ex: mariana"></div>
+              <div class="form-group" style="max-width:150px;"><label>Senha</label><input type="password" id="usr-senha" placeholder="Mínimo 6 dígitos"></div>
+              <div class="form-group" style="max-width:150px;">
+                <label>Perfil (Nível)</label>
+                <select id="usr-nivel">
+                  <option value="medico">Médico / Profissional</option>
+                  <option value="recepcao">Recepção / Secretária</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions mb-10">
+              <button class="btn btn-primary btn-sm" onclick="salvarNovoUsuario()">Cadastrar Usuário</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead><tr><th>ID</th><th>Nome</th><th>Login</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="tabela-usuarios"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Segurança da Conta</div>
+            <div class="form-row">
+              <div class="form-group"><label>Senha atual</label><input type="password" id="cfg-senha-atual" autocomplete="current-password"></div>
+              <div class="form-group"><label>Nova senha (mínimo 10 caracteres)</label><input type="password" id="cfg-senha-nova" autocomplete="new-password"></div>
+            </div>
+            <div class="form-actions"><button class="btn btn-primary btn-sm" onclick="alterarSenha()">Alterar senha</button></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Backup e Restauração</div>
+            <p class="text-muted mb-10">Faça backup regularmente para proteger seus dados.</p>
+            <div class="form-actions">
+              <button class="btn btn-success btn-sm" onclick="fazerBackup()">Fazer Backup Agora</button>
+              <button class="btn btn-info btn-sm" onclick="restaurarBackup()">Restaurar Backup</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Sobre o Sistema</div>
+            <p class="text-muted">
+              Plennus Clinic – Sistema de Gestão de Clínicas e Consultórios<br>
+              Versão 1.5 – Módulo Clínico (PEP) Integrado<br><br>
+              • Prontuário Eletrônico do Paciente (SOAP)<br>
+              • Emissão de Documentos e Receitas em PDF Timbrado<br>
+              • Controle de Acesso Baseado em Papéis (RBAC)<br>
+              • 100% Offline e Seguro
+            </p>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- sql.js -->
+  <script src="node_modules/sql.js/dist/sql-wasm.js"></script>
+  <script src="js/validations.js"></script>
+  <script src="js/database.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

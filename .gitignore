@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-win8/
+
+*.log
+*.db
+*.db.enc
+
+.DS_Store
+Thumbs.db

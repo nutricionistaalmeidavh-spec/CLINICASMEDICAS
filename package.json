@@ -1,0 +1,46 @@
+{
+  "name": "plennus-clinic",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão de Clínicas e Consultórios - Plennus Clinic",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "lint": "node --check main.js && node --check preload.js && node --check js/database.js && node --check js/app.js && node --check js/validations.js",
+    "build": "electron-builder --win",
+    "build:win32": "electron-builder --win nsis --ia32",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "author": "Plennus",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "22.3.27",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.3"
+  },
+  "build": {
+    "appId": "com.plennus.clinic",
+    "productName": "Plennus Clinic",
+    "artifactName": "${productName} Setup ${version} ${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
