@@ -117,7 +117,8 @@ Exemplos aceitos:
 - tamanho e quantidade de linhas limitados;
 - nenhuma fórmula do XLSX será executada;
 - campos não mapeados são ignorados até revisão explícita;
-- gravação deve ocorrer por lote controlado, com relatório final.
+- a confirmação usa transação única por lote: ou o lote confirmado grava de forma consistente, ou é revertido;
+- o relatório final informa inseridos, ignorados e erros sem armazenar o arquivo bruto no banco.
 
 ### Persistência
 
@@ -146,7 +147,7 @@ Novo core previsto:
 
 - `js/core/import-model.js`
 
-O parser de XLSX ficará isolado atrás de uma interface pequena para que a biblioteca possa ser trocada sem afetar o restante do renderer. A dependência escolhida na implementação deverá ser mantida/pinada e passar pelo `npm audit`; se a opção escolhida introduzir vulnerabilidade relevante, a implementação deve parar e trocar de parser antes da entrega.
+O parser de XLSX ficará isolado atrás de uma interface pequena para que a biblioteca possa ser trocada sem afetar o restante do renderer. A dependência escolhida na implementação deverá ser pinada e comparada com o baseline atual do `npm audit`; não poderá introduzir nova vulnerabilidade alta/crítica atribuível ao parser. Se isso ocorrer, a implementação deve trocar de parser antes da entrega.
 
 ---
 
@@ -154,7 +155,7 @@ O parser de XLSX ficará isolado atrás de uma interface pequena para que a bibl
 
 ### Objetivo
 
-Criar rastreabilidade local de ações relevantes, sem vender a funcionalidade como conformidade regulatória completa.
+Criar rastreabilidade local de ações relevantes, sem apresentar a funcionalidade como conformidade regulatória completa.
 
 ### Eventos auditados
 
@@ -169,7 +170,7 @@ No mínimo:
 - criação/resolução de pendência clínica;
 - emissão de documento;
 - importação de pacientes;
-- execução de migration.
+- migrations, quando a tabela de auditoria já estiver disponível.
 
 ### Estrutura
 
@@ -209,12 +210,12 @@ Novo core:
 API prevista:
 
 ```js
-PlennusAudit.log({ acao, entidade, entidadeId, camposAlterados, contexto })
+PlennusAudit.log({ acao, entidade, entidadeId, camposAlterados, contexto, ator })
 ```
 
-O helper usa o usuário autenticado atual e grava somente após a operação principal ter sido concluída com sucesso.
+Por padrão, o helper usa o usuário autenticado atual. Processos executados antes do login, como migration, podem fornecer ator explícito `system/migration`.
 
-A auditoria não deve bloquear uma consulta clínica por falha de renderização, mas falha de escrita do log deve ser visível no console e tratada nos testes. Para operações de alto impacto como importação/migration, falha de auditoria interrompe a conclusão do processo.
+O log é gravado somente depois da operação principal ter sido concluída com sucesso. Falha de auditoria em fluxo clínico comum não deve corromper a operação já concluída, mas precisa ser visível no console e coberta por testes. Importações devem gravar o evento de auditoria dentro do mesmo encerramento transacional do lote confirmado. Migrations usam `schema_migrations` como registro obrigatório e tentam gravar também em `audit_log` quando essa tabela já existir.
 
 ---
 
@@ -243,13 +244,15 @@ schema_migrations (
 - Banco novo: criar estrutura inicial e marcar a versão correspondente.
 - Migrations posteriores rodam em ordem crescente, uma única vez.
 - Cada migration deve ser idempotente o suficiente para tolerar schema parcialmente atualizado após interrupção.
+- Cada migration usa transação quando as operações envolvidas forem compatíveis com transação no SQLite/sql.js.
 - `user_version` só muda após sucesso integral da migration correspondente.
+- `schema_migrations` registra versão/nome/data após sucesso.
 
 ### Backup
 
 Antes da primeira migration necessária em um banco existente, o processo principal copiará o arquivo criptografado atual para uma pasta de backups dentro de `userData`.
 
-Formato sugerido:
+Formato:
 
 `pre-migration-v<origem>-<timestamp>.db.enc`
 
@@ -258,7 +261,7 @@ Retenção padrão: 10 backups automáticos mais recentes.
 Novo IPC restrito:
 
 - `criar-backup-pre-migracao`;
-- opcionalmente `listar-backups-automaticos` para Configurações.
+- `listar-backups-automaticos` poderá ser adicionado à Configurações se não ampliar o escopo visual da entrega.
 
 O renderer não receberá acesso arbitrário ao filesystem.
 
@@ -269,6 +272,8 @@ Novo core:
 - `js/core/migrations.js`
 
 `js/database.js` continua dono da criação do banco e das consultas, mas delega a sequência de migrations para esse core.
+
+A primeira migration versionada deve garantir, no mínimo, toda a estrutura que já existe na `main` atual e criar `schema_migrations`, `audit_log` e `import_history` na ordem necessária para as fases seguintes.
 
 ---
 
@@ -309,7 +314,7 @@ Novo IPC previsto:
 
 ### Arquitetura
 
-Novo core/domínio:
+Novo core:
 
 - `js/core/document-renderer.js`
 
@@ -353,6 +358,8 @@ Blocos previstos:
 - ações rápidas coerentes com o perfil;
 - saldo de caixa somente para perfis já autorizados a vê-lo.
 
+Para `recepcao`, o dashboard pode mostrar agenda/fila e dados administrativos, mas não deve expor conteúdo clínico de PEP, exames ou pendências restritas. Para `medico`, o saldo financeiro não deve aparecer.
+
 Não haverá interpretação clínica automática.
 
 ### Estados vazios
@@ -393,7 +400,8 @@ A cor institucional configurável continua respeitada; o redesign não deve fixa
 | Ver auditoria | sim | não | não |
 | Criar atendimento/PEP | sim | sim | não |
 | Emitir documentos clínicos | sim | sim | não |
-| Dashboard clínico | sim | sim | parcial |
+| Dashboard clínico | sim | sim | não |
+| Dashboard de agenda/fila | sim | sim | sim |
 | Saldo financeiro no dashboard | sim | não | sim |
 
 A implementação reutilizará `js/core/access-control.js` e não duplicará regras de perfil em vários módulos sem necessidade.
@@ -448,21 +456,25 @@ A implementação reutilizará `js/core/access-control.js` e não duplicará reg
 - duplicidade por nome + nascimento;
 - prévia sem gravação;
 - confirmação grava apenas válidos;
+- rollback do lote em erro transacional;
 - histórico de importação.
 
 ### Auditoria
 
 - evento após escrita clínica bem-sucedida;
 - usuário/ação/entidade corretos;
+- ator de sistema em processos pré-login;
 - não registrar senha/hash/binário;
-- importação e migration produzem evento.
+- importação produz evento;
+- migration fica registrada obrigatoriamente em `schema_migrations` e, quando possível, também em `audit_log`.
 
 ### Migrations
 
 - banco `user_version=0` migra sem perder tabelas/dados existentes;
 - migration não roda novamente quando versão já aplicada;
 - falha não avança `user_version`;
-- backup é solicitado antes de migrar banco existente.
+- backup é solicitado antes de migrar banco existente;
+- retenção automática não remove os backups mais recentes além do limite definido.
 
 ### Documentos
 
@@ -477,6 +489,7 @@ A implementação reutilizará `js/core/access-control.js` e não duplicará reg
 - todos os `data-page` existentes continuam navegáveis;
 - RBAC do menu não regride;
 - dashboard não mostra caixa a médico;
+- dashboard não mostra conteúdo clínico restrito a recepção;
 - estados vazios renderizam sem erro;
 - busca global permanece disponível em todas as páginas autorizadas.
 
@@ -489,7 +502,8 @@ Antes de considerar a entrega concluída:
 3. `npm test`;
 4. CI da branch verde;
 5. revisão de diff contra `main`;
-6. nenhum merge em `main` sem autorização explícita.
+6. comparação do `npm audit` com o baseline para garantir que nova dependência não piorou vulnerabilidades relevantes;
+7. nenhum merge em `main` sem autorização explícita.
 
 O build/instalador Windows só será declarado validado se `npm run build` ou fluxo equivalente for realmente executado com sucesso em ambiente compatível.
 
