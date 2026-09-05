@@ -2,7 +2,8 @@
   const PAGE_TITLES = {
     dashboard: 'Visão geral', agenda: 'Agenda & Sala de Espera', prontuario: 'Prontuário eletrônico',
     pacientes: 'Pacientes', profissionais: 'Profissionais', convenios: 'Convênios e procedimentos',
-    documentos: 'Documentos & PDF', caixa: 'Caixa', repasses: 'Repasses', configuracoes: 'Configurações', importar: 'Importar pacientes'
+    documentos: 'Documentos & PDF', caixa: 'Caixa', repasses: 'Repasses', configuracoes: 'Configurações',
+    importar: 'Importar pacientes', auditoria: 'Auditoria'
   };
 
   function ensureStylesheet() {
@@ -37,9 +38,7 @@
     if (title) title.textContent = PAGE_TITLES[page] || page || 'Plennus Clinic';
   }
 
-  function setupShell() {
-    ensureShellTopbar();
-  }
+  function setupShell() { ensureShellTopbar(); }
 
   root.PlennusShell = { PAGE_TITLES, ensureStylesheet, ensureShellTopbar, setPageTitle, setupShell };
 })(typeof window !== 'undefined' ? window : globalThis);
