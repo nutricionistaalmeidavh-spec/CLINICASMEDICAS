@@ -14,21 +14,29 @@ const DOMAIN_PATHS = [
   'js/domains/documents.js',
   'js/domains/finance.js',
   'js/domains/settings.js',
+  'js/domains/patient-workspace.js',
+  'js/domains/clinical-files.js',
+  'js/domains/consents.js',
+  'js/domains/labs.js',
+  'js/domains/clinical-timeline.js',
+  'js/domains/clinical-pending.js',
+];
+
+const CORE_PATHS = [
+  'js/core/utils.js',
+  'js/core/access-control.js',
+  'js/core/clinic.js',
+  'js/core/auth.js',
+  'js/core/clinical-model.js',
+  'js/core/navigation.js',
 ];
 
 test('renderer keeps bootstrap before core compatibility modules', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const appIndex = html.indexOf('src="js/app.js"');
-  const corePaths = [
-    'js/core/utils.js',
-    'js/core/access-control.js',
-    'js/core/clinic.js',
-    'js/core/auth.js',
-    'js/core/navigation.js',
-  ];
 
   assert.ok(appIndex >= 0, 'renderer bootstrap must be loaded');
-  for (const modulePath of corePaths) {
+  for (const modulePath of CORE_PATHS) {
     const moduleIndex = html.indexOf(`src="${modulePath}"`);
     assert.ok(moduleIndex > appIndex, `${modulePath} must load after js/app.js`);
   }
