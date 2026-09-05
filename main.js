@@ -7,9 +7,38 @@ app.disableHardwareAcceleration();
 
 let mainWindow;
 const DB_FILENAME = 'plennus-clinic.db.enc';
+const CLINICAL_FILE_EXTENSIONS = new Set([
+  '.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif',
+  '.txt', '.csv', '.doc', '.docx', '.xls', '.xlsx'
+]);
 
 function databasePath() {
   return path.join(app.getPath('userData'), DB_FILENAME);
+}
+
+function clinicalMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const types = {
+    '.pdf': 'application/pdf',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  };
+  return types[ext] || null;
+}
+
+function isAllowedClinicalFile(filePath) {
+  return typeof filePath === 'string'
+    && path.isAbsolute(filePath)
+    && CLINICAL_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
 function createWindow() {
@@ -82,6 +111,36 @@ ipcMain.handle('abrir-backup', async () => {
     return { ok: true, data: Array.from(data) };
   }
   return { ok: false };
+});
+
+ipcMain.handle('selecionar-arquivo-clinico', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Selecionar arquivo clínico',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Documentos e imagens clínicas', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'csv', 'doc', 'docx', 'xls', 'xlsx'] }
+    ]
+  });
+  if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
+  const filePath = filePaths[0];
+  if (!isAllowedClinicalFile(filePath) || !fs.existsSync(filePath)) return { ok: false };
+  return {
+    ok: true,
+    path: filePath,
+    name: path.basename(filePath),
+    mimeType: clinicalMimeType(filePath)
+  };
+});
+
+ipcMain.handle('abrir-arquivo-clinico', async (event, filePath) => {
+  if (!isAllowedClinicalFile(filePath) || !fs.existsSync(filePath)) return { ok: false };
+  try {
+    const error = await shell.openPath(filePath);
+    return error ? { ok: false, error } : { ok: true };
+  } catch (error) {
+    console.error('Erro ao abrir arquivo clínico:', error);
+    return { ok: false, error: error.message };
+  }
 });
 
 ipcMain.handle('salvar-documento', async (event, conteudo, nomePadrao) => {
