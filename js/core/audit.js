@@ -4,6 +4,11 @@
   if (root) root.PlennusAudit = api;
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   const SECRET_KEY_PATTERN = /(senha|password|hash|base64|binario|binary|token|secret)/i;
+  const AUDITED_TABLES = new Set([
+    'pacientes', 'prontuario_atendimentos', 'exames_laboratoriais', 'exames_resultados',
+    'consentimentos', 'arquivos_clinicos', 'pendencias_clinicas', 'documentos_emitidos', 'import_history'
+  ]);
+  let dbAuditInstalled = false;
 
   function sanitizePayload(value, depth = 0) {
     if (depth > 4) return '[truncated]';
@@ -23,11 +28,7 @@
 
   function actorFromUser(user, mode) {
     if (mode === 'migration') return { id: null, nome: 'system', nivel: 'migration' };
-    return {
-      id: user?.id ?? null,
-      nome: user?.nome || 'system',
-      nivel: user?.nivel || 'system'
-    };
+    return { id: user?.id ?? null, nome: user?.nome || 'system', nivel: user?.nivel || 'system' };
   }
 
   function compactJson(value) {
@@ -42,24 +43,14 @@
       return false;
     }
     try {
-      const user = options.user !== undefined
-        ? options.user
-        : (typeof currentUser !== 'undefined' ? currentUser : null);
+      const user = options.user !== undefined ? options.user : (typeof currentUser !== 'undefined' ? currentUser : null);
       const actor = actorFromUser(user, options.mode);
       DB.run(
         `INSERT INTO audit_log
           (usuario_id,usuario_nome,usuario_nivel,acao,entidade,entidade_id,campos_alterados,contexto)
          VALUES (?,?,?,?,?,?,?,?)`,
-        [
-          actor.id,
-          actor.nome,
-          actor.nivel,
-          String(event.acao || 'evento'),
-          String(event.entidade || 'sistema'),
-          event.entidadeId ?? null,
-          compactJson(event.camposAlterados),
-          compactJson(event.contexto)
-        ]
+        [actor.id, actor.nome, actor.nivel, String(event.acao || 'evento'), String(event.entidade || 'sistema'),
+          event.entidadeId ?? null, compactJson(event.camposAlterados), compactJson(event.contexto)]
       );
       return true;
     } catch (error) {
@@ -70,13 +61,44 @@
   }
 
   function systemMigrationEvent(version, name) {
-    return {
-      acao: 'migration_aplicada',
-      entidade: 'schema',
-      entidadeId: version,
-      contexto: { version, name }
-    };
+    return { acao: 'migration_aplicada', entidade: 'schema', entidadeId: version, contexto: { version, name } };
   }
 
-  return { sanitizePayload, actorFromUser, compactJson, log, systemMigrationEvent };
+  function parseWrite(sql, params) {
+    const text = String(sql || '').trim();
+    let match = text.match(/^INSERT\s+INTO\s+([a-z_]+)/i);
+    if (match) return { action: 'criar', table: match[1].toLowerCase(), entityId: null, fields: null };
+    match = text.match(/^UPDATE\s+([a-z_]+)\s+SET\s+([\s\S]+?)\s+WHERE\s+/i);
+    if (match) {
+      const fields = match[2].split(',').map(part => part.split('=')[0].trim()).filter(Boolean);
+      return { action: 'atualizar', table: match[1].toLowerCase(), entityId: /\bid\s*=\s*\?/i.test(text) ? params?.at?.(-1) : null, fields };
+    }
+    match = text.match(/^DELETE\s+FROM\s+([a-z_]+)/i);
+    if (match) return { action: 'excluir', table: match[1].toLowerCase(), entityId: /\bid\s*=\s*\?/i.test(text) ? params?.at?.(-1) : null, fields: null };
+    return null;
+  }
+
+  function installDbAudit(dbApi) {
+    if (dbAuditInstalled || !dbApi?.run) return false;
+    const originalRun = dbApi.run.bind(dbApi);
+    dbApi.run = function auditedRun(sql, params = []) {
+      const write = parseWrite(sql, params);
+      const result = originalRun(sql, params);
+      if (write && AUDITED_TABLES.has(write.table)) {
+        let entityId = write.entityId;
+        if (write.action === 'criar' && typeof dbApi.getLastId === 'function') entityId = dbApi.getLastId();
+        log({
+          acao: write.action,
+          entidade: write.table,
+          entidadeId: entityId,
+          camposAlterados: write.fields ? { campos: write.fields } : null
+        });
+      }
+      return result;
+    };
+    dbAuditInstalled = true;
+    return true;
+  }
+
+  return { AUDITED_TABLES, sanitizePayload, actorFromUser, compactJson, log, systemMigrationEvent, parseWrite, installDbAudit };
 });
