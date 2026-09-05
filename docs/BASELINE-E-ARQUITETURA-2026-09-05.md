@@ -42,7 +42,7 @@ O prontuário mantém seleção de paciente/profissional, resumo clínico, alerg
 
 ### Persistência
 
-Tabelas preservadas sem alteração de schema:
+Tabelas preservadas sem alteração de schema na baseline:
 
 - `usuarios`
 - `pacientes`
@@ -103,32 +103,79 @@ Não houve mudança deliberada de:
 
 - IDs dos elementos;
 - regras clínicas;
-- SQL/schema;
+- SQL/schema da baseline;
 - perfis e permissões;
 - formato do banco;
-- IPC/preload;
 - layout visual.
+
+## Extensão clínica — Patient Workspace e módulos 1–6
+
+A branch `feat/patient-workspace-clinical-modules` estende a arquitetura modular sem substituir Agenda, PEP, Documentos, Caixa ou Repasses.
+
+### Core clínico
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `js/core/clinical-model.js` | estados de consentimento, classificação apenas referencial de resultados numéricos, ordenação clínica, séries longitudinais, validação de metadados e pendências derivadas |
+
+### Novos domínios
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `js/domains/patient-workspace.js` | workspace do paciente e abas clínicas |
+| `js/domains/clinical-files.js` | metadados e acesso a arquivos/álbum clínico |
+| `js/domains/consents.js` | termos, autorizações, recusas e revogações com histórico |
+| `js/domains/labs.js` | exames laboratoriais estruturados e revisão |
+| `js/domains/clinical-timeline.js` | evolução longitudinal de sinais vitais e exames |
+| `js/domains/clinical-pending.js` | pendências manuais e pendências automáticas derivadas |
+
+O Patient Workspace organiza o paciente em: `Resumo`, `Atendimentos / PEP`, `Exames`, `Evolução`, `Arquivos clínicos`, `Encaminhamentos / Documentos`, `Termos e consentimentos` e `Pendências`. A aba PEP reutiliza integralmente o formulário e a timeline existentes.
+
+### Schema aditivo
+
+Foram acrescentadas, via `CREATE TABLE IF NOT EXISTS`, as tabelas:
+
+- `arquivos_clinicos`;
+- `consentimentos`;
+- `exames_laboratoriais`;
+- `exames_resultados`;
+- `pendencias_clinicas`.
+
+A migração é aditiva. As tabelas anteriores e o formato de persistência criptografada permanecem preservados.
+
+Arquivos clínicos continuam fora do SQLite: o banco armazena apenas nome, categoria, caminho, tipo MIME, observação e datas. O preload expõe seleção e abertura controlada de arquivos; o processo principal aceita somente extensões de documentos/imagens previstas pelo módulo.
+
+### Pendências
+
+Pendências de revisão de exame e de retorno sem agendamento são calculadas durante a leitura e recebem chaves estáveis (`lab:<id>` e `followup:<id>`). Elas não são inseridas repetidamente no banco. Somente pendências manuais são persistidas em `pendencias_clinicas`.
+
+### Evolução longitudinal
+
+A evolução reutiliza sinais vitais já persistidos em `prontuario_atendimentos` e resultados de `exames_resultados`. O sistema não gera hipótese diagnóstica nem interpretação médica automática; quando há limites numéricos explícitos, apresenta apenas a posição do valor em relação ao intervalo registrado.
 
 ## Testes e CI
 
-Foi criado workflow de CI para executar em push/PR:
+O workflow de CI executa em push/PR:
 
 1. `npm ci`;
 2. `npm run lint` com `node --check` em core e domínios;
 3. `npm test`.
 
-A suíte cobre, além dos testes anteriores, utilitários extraídos, regras de acesso, configuração institucional e invariantes da arquitetura modular.
+A suíte cobre utilitários extraídos, regras de acesso, configuração institucional, invariantes da arquitetura modular e os contratos dos seis novos módulos clínicos.
 
-## Fora do escopo
+## Fora do escopo desta extensão
 
-- redesign visual;
+- redesign visual completo;
 - upgrade do Electron;
 - backend/cloud;
 - troca do `sql.js`;
 - alteração da autenticação;
-- migração de banco;
-- novas funcionalidades clínicas.
+- telemedicina;
+- interoperabilidade EHR;
+- assinatura digital certificada;
+- integração externa com laboratórios;
+- diagnóstico ou recomendação clínica automatizada.
 
 ## Próximo passo seguro
 
-Com lint e testes verdes, o redesign pode avançar página por página. A nova separação permite alterar Dashboard, Agenda, Pacientes, PEP e demais módulos isoladamente, reduzindo o risco de regressão cruzada.
+Após lint e testes verdes na branch de feature, a revisão pode comparar a extensão clínica com `chore/fases-1-2-arquitetura` antes de qualquer integração. O redesign visual pode então avançar sobre o Patient Workspace sem mover regras clínicas de volta para `js/app.js`.

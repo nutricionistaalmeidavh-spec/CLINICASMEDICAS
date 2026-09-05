@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gerarPdf: (html, nome) => ipcRenderer.invoke('gerar-pdf', html, nome),
   imprimirDocumento: (html) => ipcRenderer.invoke('imprimir-documento', html),
   abrirUrlExterna: (url) => ipcRenderer.invoke('abrir-url-externa', url),
+  selecionarArquivoClinico: () => ipcRenderer.invoke('selecionar-arquivo-clinico'),
+  abrirArquivoClinico: (filePath) => ipcRenderer.invoke('abrir-arquivo-clinico', filePath),
   carregarBanco: () => ipcRenderer.invoke('carregar-banco'),
   salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data)
 });

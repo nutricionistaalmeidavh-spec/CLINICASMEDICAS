@@ -1,4 +1,8 @@
 (function (root) {
+  const CORE_SCRIPTS = [
+    'js/core/clinical-model.js',
+  ];
+
   const DOMAIN_SCRIPTS = [
     'js/domains/dashboard.js',
     'js/domains/patients.js',
@@ -8,14 +12,21 @@
     'js/domains/documents.js',
     'js/domains/finance.js',
     'js/domains/settings.js',
+    'js/domains/patient-workspace.js',
+    'js/domains/clinical-files.js',
+    'js/domains/consents.js',
+    'js/domains/labs.js',
+    'js/domains/clinical-timeline.js',
+    'js/domains/clinical-pending.js',
   ];
 
   // Transitional compatibility loader: navigation.js is already referenced by index.html.
-  // While the document parser is active, document.write loads each domain synchronously,
-  // so all legacy global handlers exist before DOMContentLoaded executes the bootstrap.
+  // While the document parser is active, document.write loads core/domain modules synchronously,
+  // so all global handlers exist before DOMContentLoaded executes the bootstrap.
   function loadDomainScripts() {
     if (typeof document === 'undefined' || document.readyState !== 'loading') return;
-    document.write(DOMAIN_SCRIPTS.map(src => `<script src="${src}"><\/script>`).join(''));
+    const scripts = [...CORE_SCRIPTS, ...DOMAIN_SCRIPTS];
+    document.write(scripts.map(src => `<script src="${src}"><\/script>`).join(''));
   }
 
   const PAGE_LOADERS = {
@@ -83,7 +94,7 @@
     });
   }
 
-  root.PlennusNavigation = { DOMAIN_SCRIPTS, PAGE_LOADERS, loadDomainScripts, setupNavigation, navegar, setupTabs };
+  root.PlennusNavigation = { CORE_SCRIPTS, DOMAIN_SCRIPTS, PAGE_LOADERS, loadDomainScripts, setupNavigation, navegar, setupTabs };
   root.setupNavigation = setupNavigation;
   root.navegar = navegar;
   root.setupTabs = setupTabs;
