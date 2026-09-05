@@ -11,9 +11,7 @@
     return { type: 'section', title, html: String(html || ''), breakBefore: !!options.breakBefore, keepTogether: options.keepTogether !== false };
   }
 
-  function pageBreak() {
-    return { type: 'page-break' };
-  }
+  function pageBreak() { return { type: 'page-break' }; }
 
   function safeColor(value) {
     return /^#[0-9a-f]{3,8}$/i.test(String(value || '')) ? value : '#C41E3A';
@@ -39,13 +37,14 @@
 <html lang="pt-BR"><head><meta charset="UTF-8"><title>${escape(title || 'Documento')}</title>
 <style>
 @page { size: A4 portrait; margin: 18mm 18mm 22mm 18mm; }
+:root { --primary: ${color}; }
 * { box-sizing: border-box; }
 body { font-family: 'Segoe UI', Arial, sans-serif; color:#202124; margin:0; font-size:13px; line-height:1.55; }
 .header { border-bottom:2px solid ${color}; padding-bottom:10px; margin-bottom:18px; }
 .clinic-name { color:${color}; font-size:20px; font-weight:750; text-transform:uppercase; letter-spacing:.04em; }
 .clinic-info { color:#667085; font-size:11px; margin-top:2px; }
 .document-title { text-align:center; text-transform:uppercase; letter-spacing:.04em; font-size:18px; margin:18px 0; }
-.patient-box { display:grid; grid-template-columns:2fr 1fr; gap:8px 18px; background:#F8FAFC; border:1px solid #E4E7EC; border-radius:6px; padding:10px 12px; margin-bottom:18px; }
+.patient-box { display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px 18px; background:#F8FAFC; border:1px solid #E4E7EC; border-radius:6px; padding:10px 12px; margin-bottom:18px; }
 .document-section { margin:0 0 18px; }
 .document-section h2 { color:${color}; font-size:14px; margin:0 0 7px; padding-bottom:5px; border-bottom:1px solid #E4E7EC; }
 .keep-together { break-inside: avoid; page-break-inside: avoid; }
@@ -62,7 +61,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; color:#202124; margin:0; font
 </style></head><body>
 <header class="header"><div class="clinic-name">${escape(clinic.nome || 'Plennus Clinic')}</div><div class="clinic-info">${escape([clinic.endereco, clinic.cidade].filter(Boolean).join(' • '))}</div><div class="clinic-info">${escape([clinic.telefone && `Tel: ${clinic.telefone}`, clinic.cnpj && `CNPJ: ${clinic.cnpj}`].filter(Boolean).join(' • '))}</div></header>
 <h1 class="document-title">${escape(title || 'Documento')}</h1>
-<div class="patient-box"><div><strong>Paciente:</strong> ${escape(patient.nome || 'Não informado')}</div><div><strong>CPF:</strong> ${escape(patient.cpf || 'Não informado')}</div></div>
+<div class="patient-box"><div><strong>Paciente:</strong> ${escape(patient.nome || 'Não informado')}</div><div><strong>CPF:</strong> ${escape(patient.cpf || 'Não informado')}</div><div><strong>Data:</strong> ${escape(footer || '')}</div></div>
 <main>${sectionsHtml}${imageHtml ? `<section class="document-section"><h2>Imagens clínicas</h2><div class="image-grid">${imageHtml}</div></section>` : ''}</main>
 <div class="signature-area"><div class="signature-line"></div><div class="doctor-name">Dr(a). ${escape(professional.nome || 'Profissional')}</div><div class="doctor-crm">${escape([professional.crm, professional.especialidade].filter(Boolean).join(' • '))}</div></div>
 <footer class="footer-legal"><span>Documento emitido eletronicamente por Plennus Clinic</span><span>${escape(footer)}</span></footer>
