@@ -25,6 +25,7 @@
     'js/domains/clinical-timeline.js',
     'js/domains/clinical-pending.js',
     'js/domains/imports.js',
+    'js/domains/audit-view.js',
     'js/domains/platform-documents.js',
   ];
 
@@ -63,6 +64,7 @@
       carregarUsuariosConfig();
     },
     importar: () => carregarImportacao(),
+    auditoria: () => carregarAuditoria(),
   };
 
   function setupNavigation() {
