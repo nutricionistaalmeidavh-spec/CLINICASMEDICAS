@@ -18,6 +18,7 @@ function selecionarPacientePep(idOpcional) {
     document.getElementById('pep-patient-card').style.display = 'none';
     document.getElementById('pep-corpo').style.display = 'none';
     selectedPepPacienteId = null;
+    if (typeof refreshPatientWorkspace === 'function') refreshPatientWorkspace(null);
     return;
   }
   selectedPepPacienteId = pid;
@@ -47,6 +48,7 @@ function selecionarPacientePep(idOpcional) {
   document.getElementById('pep-corpo').style.display = 'grid';
   novoAtendimentoPep();
   carregarTimelinePep(pid);
+  if (typeof refreshPatientWorkspace === 'function') refreshPatientWorkspace(pid);
 }
 
 function novoAtendimentoPep() {
@@ -101,6 +103,7 @@ function salvarAtendimentoPep() {
     [selectedPepPacienteId, profId, dataHora, tipo, subj, obj, pa, fc, temp, peso, altura, imc, aval, cid, plano, presc]);
   alert('Atendimento salvo com sucesso no prontuário do paciente!');
   carregarTimelinePep(selectedPepPacienteId);
+  if (typeof refreshPatientWorkspace === 'function') refreshPatientWorkspace(selectedPepPacienteId, 'pep');
 }
 
 function carregarTimelinePep(pacienteId) {
@@ -152,6 +155,7 @@ function abrirProntuarioPaciente(id) {
   navegar('prontuario');
   document.getElementById('pep-paciente').value = id;
   selecionarPacientePep(id);
+  if (typeof openPatientWorkspace === 'function') openPatientWorkspace(id, 'pep');
 }
 
 function abrirProntuarioDaAgenda(pacId, profId) {
@@ -159,6 +163,7 @@ function abrirProntuarioDaAgenda(pacId, profId) {
   document.getElementById('pep-paciente').value = pacId;
   if (profId) document.getElementById('pep-profissional').value = profId;
   selecionarPacientePep(pacId);
+  if (typeof openPatientWorkspace === 'function') openPatientWorkspace(pacId, 'pep');
 }
 
 function limparFormularioPep() {
