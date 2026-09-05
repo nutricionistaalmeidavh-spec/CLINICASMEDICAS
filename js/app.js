@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await DB.init();
     if (!DB.isReady()) throw new Error('Banco não ficou pronto');
     await window.PlennusMigrations?.ensurePlatformSchema(DB, window.electronAPI, window.PlennusAudit);
+    window.PlennusAudit?.installDbAudit(DB);
     window.PlennusShell?.setupShell();
     window.PlennusImports?.ensureImportUi();
     setupNavigation();
