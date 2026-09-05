@@ -15,3 +15,23 @@ test('audit sanitizer removes secrets and binary-like payloads', () => {
 test('migration audit actor is system/migration', () => {
   assert.deepEqual(audit.actorFromUser(null, 'migration'), { id: null, nome: 'system', nivel: 'migration' });
 });
+
+test('database instrumentation records relevant patient write after the primary write', () => {
+  const calls = [];
+  const previousDb = global.DB;
+  const stub = {
+    run(sql, params = []) { calls.push({ sql, params }); return 1; },
+    getLastId() { return 42; }
+  };
+  global.DB = stub;
+  audit.installDbAudit(stub);
+  stub.run('INSERT INTO pacientes (nome,cpf) VALUES (?,?)', ['Ana', '123']);
+  assert.match(calls[0].sql, /^INSERT INTO pacientes/);
+  assert.equal(calls.filter(call => /INSERT INTO audit_log/.test(call.sql)).length, 1);
+  const auditCall = calls.find(call => /INSERT INTO audit_log/.test(call.sql));
+  assert.equal(auditCall.params[3], 'criar');
+  assert.equal(auditCall.params[4], 'pacientes');
+  assert.equal(auditCall.params[5], 42);
+  if (previousDb === undefined) delete global.DB;
+  else global.DB = previousDb;
+});
