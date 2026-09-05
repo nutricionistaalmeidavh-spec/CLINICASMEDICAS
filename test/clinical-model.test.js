@@ -24,6 +24,15 @@ test('buildVitalSeries orders measurements chronologically and omits absent valu
   assert.deepEqual(series.imc.map(x => x.value), [25]);
 });
 
+test('buildVitalSeries understands the DD/MM/YYYY format used by the PEP', () => {
+  const series = model.buildVitalSeries([
+    { data_hora: '05/09/2026 10:00', peso: 80 },
+    { data_hora: '30/08/2026 10:00', peso: 81 },
+    { data_hora: '01/09/2026 10:00', peso: 82 }
+  ]);
+  assert.deepEqual(series.peso.map(x => x.value), [81, 82, 80]);
+});
+
 test('clinical file metadata requires patient, category and file name', () => {
   assert.deepEqual(model.validateClinicalFileMetadata({ paciente_id: 1, categoria: 'Imagem', nome_arquivo: 'foto.jpg' }), []);
   assert.ok(model.validateClinicalFileMetadata({ paciente_id: 1, categoria: '', nome_arquivo: '' }).length >= 2);
