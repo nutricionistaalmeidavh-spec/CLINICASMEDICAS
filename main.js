@@ -6,6 +6,7 @@ const { parseXlsx } = require('./js/core/xlsx-node');
 app.disableHardwareAcceleration();
 
 let mainWindow;
+let lastPreMigrationBackup = null;
 const DB_FILENAME = 'plennus-clinic.db.enc';
 const CLINICAL_FILE_EXTENSIONS = new Set([
   '.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif',
@@ -41,6 +42,7 @@ function isAllowedClinicalFile(filePath) {
 }
 
 function createPreMigrationBackup(fromVersion = 0) {
+  if (lastPreMigrationBackup) return lastPreMigrationBackup;
   const source = databasePath();
   if (!fs.existsSync(source)) return { ok: true, skipped: true };
   try {
@@ -54,10 +56,12 @@ function createPreMigrationBackup(fromVersion = 0) {
       .map(name => ({ name, full: path.join(dir, name), mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
     backups.slice(10).forEach(item => { try { fs.unlinkSync(item.full); } catch (_) { /* no-op */ } });
-    return { ok: true, path: target };
+    lastPreMigrationBackup = { ok: true, path: target };
+    return lastPreMigrationBackup;
   } catch (error) {
     console.error('Falha ao criar backup pré-migração:', error);
-    return { ok: false, error: error.message };
+    lastPreMigrationBackup = { ok: false, error: error.message };
+    return lastPreMigrationBackup;
   }
 }
 
@@ -213,6 +217,8 @@ ipcMain.handle('abrir-url-externa', async (event, url) => {
 ipcMain.handle('carregar-banco', () => {
   const filePath = databasePath();
   if (!fs.existsSync(filePath)) return null;
+  const backup = createPreMigrationBackup(0);
+  if (!backup.ok) console.error('Backup de segurança não pôde ser criado antes de carregar o banco:', backup.error);
   try {
     const encrypted = fs.readFileSync(filePath);
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do Windows indisponível');
