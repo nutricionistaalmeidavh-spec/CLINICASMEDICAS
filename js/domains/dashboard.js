@@ -29,6 +29,31 @@
     return states[type] || 'Nenhum registro disponível';
   }
 
+  function ensureDashboardUi() {
+    if (typeof document === 'undefined') return;
+    const page = document.getElementById('page-dashboard');
+    if (!page || page.dataset.platformDashboard === '1') return;
+    page.dataset.platformDashboard = '1';
+    page.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px">
+        <div><h1 class="page-title" style="margin-bottom:4px">Visão geral</h1><p class="text-muted">Operação clínica de hoje e itens que precisam de atenção.</p></div>
+        <button class="btn btn-primary btn-sm" style="width:auto" onclick="navegar('agenda')">Abrir agenda</button>
+      </div>
+      <div class="dashboard-kpi-grid">
+        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Pacientes ativos</div><div class="dashboard-kpi-value" id="stat-pacientes">0</div></div>
+        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Consultas hoje</div><div class="dashboard-kpi-value" id="stat-consultas">0</div></div>
+        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Em espera</div><div class="dashboard-kpi-value" id="stat-aguardando">0</div></div>
+        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Pendências clínicas</div><div class="dashboard-kpi-value" id="stat-pendencias">0</div></div>
+        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Exames para revisar</div><div class="dashboard-kpi-value" id="stat-exames-pendentes">0</div></div>
+        <div class="dashboard-kpi" id="dashboard-saldo-card"><div class="dashboard-kpi-label">Saldo caixa</div><div class="dashboard-kpi-value" id="stat-saldo">R$ 0,00</div></div>
+      </div>
+      <div class="dashboard-grid">
+        <section class="dashboard-panel"><h3>Próximos atendimentos</h3><div id="dashboard-proximos"></div></section>
+        <section class="dashboard-panel"><h3>Sala de espera</h3><div id="dashboard-espera"></div></section>
+        <section class="dashboard-panel"><h3>Revisão clínica</h3><div id="dashboard-clinico"></div></section>
+      </div>`;
+  }
+
   function safeCount(sql, params = []) {
     const row = DB.query(sql, params)[0];
     return Number(row?.c) || 0;
@@ -44,8 +69,13 @@
     container.innerHTML = rows.map(renderRow).join('');
   }
 
+  function esc(value) {
+    return typeof escapeHTML === 'function' ? escapeHTML(value || '') : String(value || '');
+  }
+
   function carregarDashboard() {
     if (typeof DB === 'undefined' || !DB?.query) return;
+    ensureDashboardUi();
     const dataHoje = typeof hoje === 'function' ? hoje() : '';
     const role = typeof currentUser !== 'undefined' ? currentUser?.nivel : null;
     const pacientes = safeCount('SELECT COUNT(*) as c FROM pacientes WHERE ativo=1');
@@ -71,21 +101,20 @@
 
     renderList('dashboard-proximos', metrics.proximos, emptyState('agenda'), row => `
       <button class="dashboard-list-item" type="button" onclick="navegar('agenda')">
-        <span class="dashboard-list-time">${typeof escapeHTML === 'function' ? escapeHTML(row.hora || '') : row.hora || ''}</span>
-        <span><strong>${typeof escapeHTML === 'function' ? escapeHTML(row.paciente || 'Paciente') : row.paciente || 'Paciente'}</strong><small>${typeof escapeHTML === 'function' ? escapeHTML(row.profissional || '') : row.profissional || ''}</small></span>
+        <span class="dashboard-list-time">${esc(row.hora)}</span><span><strong>${esc(row.paciente || 'Paciente')}</strong><small>${esc(row.profissional)}</small></span>
       </button>`);
 
     const waitRows = DB.query(`SELECT a.id,a.hora,p.nome as paciente FROM agenda a LEFT JOIN pacientes p ON p.id=a.paciente_id
       WHERE a.data=? AND a.status='espera' ORDER BY COALESCE(a.chegada_em,a.hora) LIMIT 6`, [dataHoje]);
     renderList('dashboard-espera', waitRows, emptyState('espera'), row => `
-      <button class="dashboard-list-item" type="button" onclick="navegar('agenda')"><span class="dashboard-list-time">${typeof escapeHTML === 'function' ? escapeHTML(row.hora || '') : row.hora || ''}</span><span><strong>${typeof escapeHTML === 'function' ? escapeHTML(row.paciente || 'Paciente') : row.paciente || 'Paciente'}</strong><small>Aguardando atendimento</small></span></button>`);
+      <button class="dashboard-list-item" type="button" onclick="navegar('agenda')"><span class="dashboard-list-time">${esc(row.hora)}</span><span><strong>${esc(row.paciente || 'Paciente')}</strong><small>Aguardando atendimento</small></span></button>`);
 
-    const clinicalRows = DB.query(`SELECT 'exame' as tipo,e.id,p.nome as paciente,e.data_coleta as referencia
+    const clinicalRows = DB.query(`SELECT e.id,p.nome as paciente,e.data_coleta as referencia
       FROM exames_laboratoriais e LEFT JOIN pacientes p ON p.id=e.paciente_id WHERE e.status_revisao='pendente'
       ORDER BY e.criado_em DESC LIMIT 5`);
     renderList('dashboard-clinico', clinicalRows, emptyState('exames'), row => `
-      <button class="dashboard-list-item" type="button" onclick="navegar('prontuario')"><span class="dashboard-list-dot"></span><span><strong>${typeof escapeHTML === 'function' ? escapeHTML(row.paciente || 'Paciente') : row.paciente || 'Paciente'}</strong><small>Exame aguardando revisão</small></span></button>`);
+      <button class="dashboard-list-item" type="button" onclick="navegar('prontuario')"><span class="dashboard-list-dot"></span><span><strong>${esc(row.paciente || 'Paciente')}</strong><small>Exame aguardando revisão</small></span></button>`);
   }
 
-  return { buildDashboardMetrics, emptyState, carregarDashboard };
+  return { buildDashboardMetrics, emptyState, ensureDashboardUi, carregarDashboard };
 });
