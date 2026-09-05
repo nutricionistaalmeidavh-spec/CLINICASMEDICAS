@@ -8,7 +8,7 @@
       SELECT id, data_hora, tipo_atendimento, pressao_arterial, frequencia_cardiaca, temperatura, peso, altura, imc
       FROM prontuario_atendimentos
       WHERE paciente_id=?
-      ORDER BY data_hora ASC, id ASC`, [patientId]);
+      ORDER BY id ASC`, [patientId]);
     const labs = root.DB.query(`
       SELECT e.id AS exame_id, e.data_coleta, e.laboratorio, e.status_revisao,
              r.id AS resultado_id, r.marcador, r.valor, r.valor_texto, r.unidade,
@@ -16,7 +16,7 @@
       FROM exames_laboratoriais e
       LEFT JOIN exames_resultados r ON r.exame_id=e.id
       WHERE e.paciente_id=?
-      ORDER BY COALESCE(e.data_coleta, e.criado_em) ASC, e.id ASC, r.id ASC`, [patientId]);
+      ORDER BY e.id ASC, r.id ASC`, [patientId]);
     return {
       encounters,
       labs,
@@ -50,7 +50,7 @@
       const resultValue = row.valor !== null && row.valor !== undefined ? `${row.valor}${row.unidade ? ` ${row.unidade}` : ''}` : (row.valor_texto || '—');
       timelineRows.push({ date: row.data_coleta || '', type: 'Exame', title: row.marcador, detail: `${resultValue}${row.laboratorio ? ` · ${row.laboratorio}` : ''}` });
     });
-    timelineRows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    timelineRows.sort((a, b) => root.PlennusClinicalModel.clinicalDateSortValue(a.date) - root.PlennusClinicalModel.clinicalDateSortValue(b.date));
 
     container.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
