@@ -49,21 +49,34 @@
   }
 
   function readUserVersion(database) {
-    const result = database.exec('PRAGMA user_version');
-    return result?.[0]?.values?.[0]?.[0] || 0;
+    if (typeof database.exec === 'function') {
+      const result = database.exec('PRAGMA user_version');
+      return result?.[0]?.values?.[0]?.[0] || 0;
+    }
+    if (typeof database.query === 'function') {
+      const row = database.query('PRAGMA user_version')[0];
+      return Number(row?.user_version ?? Object.values(row || {})[0]) || 0;
+    }
+    return 0;
   }
 
   function applyMigration(database, migration) {
-    database.run('BEGIN TRANSACTION');
-    try {
-      migration.sql.forEach(statement => database.run(statement));
-      database.run('INSERT OR REPLACE INTO schema_migrations (version,name) VALUES (?,?)', [migration.version, migration.name]);
-      database.run(`PRAGMA user_version=${migration.version}`);
-      database.run('COMMIT');
-    } catch (error) {
-      try { database.run('ROLLBACK'); } catch (_) { /* no-op */ }
-      throw error;
+    if (typeof database.exec === 'function') {
+      database.run('BEGIN TRANSACTION');
+      try {
+        migration.sql.forEach(statement => database.run(statement));
+        database.run('INSERT OR REPLACE INTO schema_migrations (version,name) VALUES (?,?)', [migration.version, migration.name]);
+        database.run(`PRAGMA user_version=${migration.version}`);
+        database.run('COMMIT');
+      } catch (error) {
+        try { database.run('ROLLBACK'); } catch (_) { /* no-op */ }
+        throw error;
+      }
+      return;
     }
+    migration.sql.forEach(statement => database.run(statement));
+    database.run('INSERT OR REPLACE INTO schema_migrations (version,name) VALUES (?,?)', [migration.version, migration.name]);
+    database.run(`PRAGMA user_version=${migration.version}`);
   }
 
   async function runMigrations({ database, beforeMigrate, audit } = {}) {
@@ -79,11 +92,35 @@
     for (const migration of pending) {
       applyMigration(database, migration);
       applied.push(migration.version);
-      if (typeof audit === 'function') {
-        await audit({ version: migration.version, name: migration.name });
-      }
+      if (typeof audit === 'function') await audit({ version: migration.version, name: migration.name });
     }
     return { from: currentVersion, to: readUserVersion(database), applied };
+  }
+
+  function hasMeaningfulData(database) {
+    if (typeof database.query !== 'function') return true;
+    for (const table of ['pacientes', 'agenda', 'prontuario_atendimentos', 'documentos_emitidos']) {
+      try {
+        const row = database.query(`SELECT COUNT(*) as c FROM ${table}`)[0];
+        if (Number(row?.c) > 0) return true;
+      } catch (_) { /* legacy partial schema */ }
+    }
+    return false;
+  }
+
+  async function ensurePlatformSchema(database, electronAPI, auditApi) {
+    return runMigrations({
+      database,
+      beforeMigrate: async meta => {
+        if (!hasMeaningfulData(database)) return { ok: true, skipped: true };
+        if (!electronAPI?.criarBackupPreMigracao) return { ok: true, skipped: true };
+        return electronAPI.criarBackupPreMigracao({ fromVersion: meta.from });
+      },
+      audit: async migration => {
+        if (!auditApi?.log) return;
+        auditApi.log(auditApi.systemMigrationEvent(migration.version, migration.name), { strict: true, mode: 'migration', user: null });
+      }
+    });
   }
 
   return {
@@ -92,6 +129,8 @@
     getPendingMigrations,
     readUserVersion,
     applyMigration,
-    runMigrations
+    runMigrations,
+    hasMeaningfulData,
+    ensurePlatformSchema
   };
 });
