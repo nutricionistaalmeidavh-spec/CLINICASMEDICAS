@@ -42,6 +42,32 @@ test('navigation compatibility shell declares every extracted domain', () => {
   }
 });
 
+test('navigation loads domain scripts synchronously while the renderer is parsing', () => {
+  const writes = [];
+  const previousDocument = global.document;
+  global.document = {
+    readyState: 'loading',
+    write: value => writes.push(value),
+  };
+
+  const modulePath = require.resolve('../js/core/navigation.js');
+  delete require.cache[modulePath];
+  require(modulePath);
+
+  const emitted = writes.join('');
+  for (const domainPath of DOMAIN_PATHS) {
+    assert.ok(emitted.includes(`src="${domainPath}"`), `${domainPath} must be emitted synchronously`);
+  }
+
+  delete require.cache[modulePath];
+  delete global.PlennusNavigation;
+  delete global.setupNavigation;
+  delete global.navegar;
+  delete global.setupTabs;
+  if (previousDocument === undefined) delete global.document;
+  else global.document = previousDocument;
+});
+
 test('app.js is only renderer bootstrap and no longer owns business domains', () => {
   const source = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   assert.ok(source.length < 2500, `app.js should stay a small bootstrap, got ${source.length} chars`);
