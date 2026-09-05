@@ -25,6 +25,7 @@
     'js/domains/clinical-timeline.js',
     'js/domains/clinical-pending.js',
     'js/domains/imports.js',
+    'js/domains/platform-documents.js',
   ];
 
   function loadDomainScripts() {
