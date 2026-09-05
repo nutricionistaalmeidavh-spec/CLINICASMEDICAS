@@ -181,6 +181,71 @@ function createTables() {
       ativo INTEGER DEFAULT 1
     );
 
+    CREATE TABLE IF NOT EXISTS arquivos_clinicos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paciente_id INTEGER NOT NULL,
+      categoria TEXT NOT NULL,
+      nome_arquivo TEXT NOT NULL,
+      caminho_arquivo TEXT,
+      mime_type TEXT,
+      observacao TEXT,
+      data_registro TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS consentimentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paciente_id INTEGER NOT NULL,
+      tipo TEXT NOT NULL,
+      autorizado INTEGER DEFAULT 0,
+      aceito_em TEXT,
+      revogado_em TEXT,
+      observacao TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime')),
+      atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS exames_laboratoriais (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paciente_id INTEGER NOT NULL,
+      data_coleta TEXT,
+      laboratorio TEXT,
+      status_revisao TEXT DEFAULT 'pendente',
+      observacao TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS exames_resultados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exame_id INTEGER NOT NULL,
+      marcador TEXT NOT NULL,
+      valor REAL,
+      valor_texto TEXT,
+      unidade TEXT,
+      referencia_min REAL,
+      referencia_max REAL,
+      referencia_texto TEXT,
+      FOREIGN KEY (exame_id) REFERENCES exames_laboratoriais(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS pendencias_clinicas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paciente_id INTEGER NOT NULL,
+      tipo TEXT DEFAULT 'manual',
+      titulo TEXT NOT NULL,
+      descricao TEXT,
+      origem_tipo TEXT,
+      origem_id INTEGER,
+      status TEXT DEFAULT 'aberta',
+      vencimento_em TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime')),
+      resolvido_em TEXT,
+      FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+    );
+
     CREATE TABLE IF NOT EXISTS configuracoes (
       chave TEXT PRIMARY KEY,
       valor TEXT
