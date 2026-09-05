@@ -2,69 +2,47 @@
 
 **Data:** 5 de setembro de 2026  
 **Repositório:** `nutricionistaalmeidavh-spec/CLINICASMEDICAS`  
-**Baseline da main analisada:** árvore `fef80ec2a3a6723ca1f826e5356647405b07b996`  
+**Baseline da main analisada:** `fef80ec2a3a6723ca1f826e5356647405b07b996`  
 **Objetivo:** preparar o sistema para o redesign sem perder fluxos, dados ou permissões existentes.
 
 ## Fase 1 — Baseline funcional congelada
 
-### Stack e execução
+### Stack
 
 - Electron `22.3.27`.
 - Renderer em HTML/CSS/JavaScript sem framework.
-- `sql.js` como banco SQLite local.
-- Persistência do banco criptografada via `safeStorage` no Electron; fallback para `localStorage` fora do Electron.
-- Empacotamento Windows por `electron-builder`/NSIS.
+- `sql.js` como SQLite local.
+- Persistência criptografada via `safeStorage` no Electron; fallback para `localStorage` fora do Electron.
+- Empacotamento Windows com `electron-builder`/NSIS.
 
-### Shell e páginas
+### Páginas e perfis
 
-| Página | Perfis visíveis no menu | Inicialização ao navegar |
+| Página | Perfis | Fluxos preservados |
 | --- | --- | --- |
 | Dashboard | admin, médico, recepção | indicadores de pacientes, profissionais, consultas e caixa |
-| Agenda | admin, médico, recepção | selects, data, grade, agenda diária e sala de espera |
-| Prontuário (PEP) | admin, médico | pacientes/profissionais, SOAP e histórico |
+| Agenda | admin, médico, recepção | agenda diária, fila, lista, grade e WhatsApp |
+| Prontuário (PEP) | admin, médico | SOAP, sinais vitais, CID, conduta, prescrição e histórico |
 | Pacientes | admin, médico, recepção | cadastro, edição, inativação e acesso ao PEP |
 | Profissionais | admin | cadastro e percentual de repasse |
 | Convênios | admin, recepção | convênios e procedimentos |
-| Documentos & PDF | admin, médico | templates, paciente/profissional, impressão/PDF/TXT |
+| Documentos & PDF | admin, médico | templates, impressão, PDF e TXT |
 | Caixa | admin, recepção | entradas, saídas e saldo |
 | Repasses | admin | cálculo, registro e pagamento |
 | Configurações | admin, médico, recepção | identidade, usuários, senha, backup/restauração |
 
-### Agenda e fluxo assistencial
+### Fluxo assistencial principal
 
-A Agenda contém quatro visualizações que devem ser preservadas durante o redesign:
+`Agendamento -> confirmação/chegada -> sala de espera -> atendimento -> PEP -> finalização`
 
-1. Grade diária por horários.
-2. Sala de espera em três estados: agendados, aguardando e atendimento/finalizados.
-3. Lista completa.
-4. Grade de horários dos profissionais.
-
-Fluxo principal:
-
-`Agendamento -> confirmação/chegada -> sala de espera -> atendimento -> PEP -> finalização`.
-
-Também existe confirmação por WhatsApp, filtro por profissional e prevenção de conflito de horário por profissional/data/hora.
+A Agenda mantém quatro visualizações: grade diária, sala de espera, lista completa e grade de horários. Também permanecem filtro por profissional, confirmação via WhatsApp e bloqueio de conflito de horário.
 
 ### PEP
 
-O prontuário já contempla:
+O prontuário mantém seleção de paciente/profissional, resumo clínico, alergias, comorbidades, medicamentos contínuos, SOAP, pressão arterial, frequência cardíaca, temperatura, peso, altura, IMC, CID-10, hipótese diagnóstica, plano/conduta, prescrição, timeline e impressão/PDF.
 
-- seleção de paciente e profissional responsável;
-- resumo do paciente;
-- alergias;
-- comorbidades e medicamentos contínuos;
-- tipo de atendimento;
-- SOAP;
-- pressão arterial, frequência cardíaca, temperatura, peso, altura e IMC;
-- CID-10 e hipótese diagnóstica;
-- plano/conduta;
-- prescrição;
-- linha do tempo de atendimentos;
-- impressão de receita e resumo clínico.
+### Persistência
 
-### Persistência e tabelas
-
-Tabelas identificadas:
+Tabelas preservadas sem alteração de schema:
 
 - `usuarios`
 - `pacientes`
@@ -80,84 +58,77 @@ Tabelas identificadas:
 - `documentos_templates`
 - `configuracoes`
 
-A Fase 2 não altera schema, migrações nem formato do banco.
+### Interfaces Electron preservadas
 
-### Interfaces Electron que não podem ser quebradas
-
-O preload/main process fornece recursos para:
-
-- carregar e salvar banco criptografado;
-- backup e restauração;
-- salvar documento em arquivo;
+- carregar/salvar banco criptografado;
+- backup/restauração;
+- salvar documento;
 - gerar PDF;
-- imprimir documento;
+- imprimir;
 - abrir URL externa/WhatsApp;
-- hash de senha exposto ao renderer.
+- hash de senha no preload.
 
-### Pontos de acoplamento encontrados
+## Fase 2 — Renderer modularizado
 
-`js/app.js` concentra aproximadamente todo o comportamento do renderer: autenticação, RBAC, navegação, utilitários, pacientes, profissionais, agenda, PEP, documentos, caixa, repasses e configurações. Isso torna uma alteração visual ampla arriscada porque funções sem relação direta compartilham o mesmo arquivo e o mesmo escopo global.
+O `js/app.js`, antes responsável por praticamente todo o renderer, foi reduzido ao bootstrap e ao estado global transitório necessário para compatibilidade.
 
-## Fase 2 — Primeira separação arquitetural segura
-
-### Regra da refatoração
-
-Nesta fase não há redesign, mudança de banco, mudança de regra clínica nem alteração deliberada dos fluxos. O objetivo é criar fronteiras para que as próximas alterações possam ocorrer por domínio.
-
-### Módulos extraídos
+### Core transversal
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `js/core/utils.js` | dinheiro, escape HTML, CPF, datas e idade |
-| `js/core/access-control.js` | regras de visibilidade por perfil e página inicial por papel |
-| `js/core/clinic.js` | transformação das configurações da clínica para o contrato usado por documentos |
-| `js/core/auth.js` | login/logout e aplicação das permissões de menu |
-| `js/core/navigation.js` | navegação, carregadores de página e abas |
+| `js/core/utils.js` | dinheiro, HTML escape, CPF, datas e idade |
+| `js/core/access-control.js` | RBAC de menu, labels e landing page por perfil |
+| `js/core/clinic.js` | configuração/identidade institucional |
+| `js/core/auth.js` | login, logout e aplicação de permissões |
+| `js/core/navigation.js` | navegação, abas, page loaders e carregamento transitório dos domínios |
 
-### Estratégia de compatibilidade
+### Domínios
 
-Os módulos `core` são carregados **depois** de `js/app.js`. Assim:
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `js/domains/dashboard.js` | indicadores do dashboard |
+| `js/domains/patients.js` | pacientes |
+| `js/domains/professionals.js` | profissionais |
+| `js/domains/agenda.js` | agenda, grade, sala de espera e WhatsApp |
+| `js/domains/pep.js` | prontuário e evolução clínica |
+| `js/domains/documents.js` | documentos, PDFs, convênios e procedimentos |
+| `js/domains/finance.js` | caixa e repasses |
+| `js/domains/settings.js` | identidade, usuários, senha e backup |
 
-- o estado legado atual (`currentUser`, paciente do PEP, repasse selecionado e data da agenda) continua intacto;
-- handlers e funções já usados pelo HTML mantêm os mesmos nomes globais;
-- os módulos extraídos passam a ser a implementação ativa das funções transversais;
-- nenhum atributo `onclick`, `onchange`, ID de elemento ou contrato do banco precisa ser alterado agora.
+### Compatibilidade
 
-Esse desenho reduz o risco desta primeira etapa. O monólito permanece temporariamente como camada de compatibilidade até os domínios serem retirados dele em etapas menores e testadas.
+Para não alterar o HTML inteiro nem os contratos dos handlers nesta fase, os nomes globais usados por `onclick`/`onchange` foram preservados. `navigation.js`, já carregado pelo renderer, registra e carrega os arquivos de domínio sincronamente durante o parsing. É uma ponte transitória: no redesign, os handlers inline podem ser eliminados e os domínios carregados diretamente pelo shell.
 
-### Sequência recomendada para a próxima refatoração
+Não houve mudança deliberada de:
 
-Sem misturar com o redesign visual, a continuação deve extrair em lotes independentes:
+- IDs dos elementos;
+- regras clínicas;
+- SQL/schema;
+- perfis e permissões;
+- formato do banco;
+- IPC/preload;
+- layout visual.
 
-1. `patients` e `professionals`;
-2. `agenda` e sala de espera;
-3. `pep` e documentos clínicos;
-4. `financial` (caixa/repasses);
-5. `settings/users`;
-6. por último, reduzir `app.js` a bootstrap/compatibilidade e removê-lo quando não houver mais dependências.
+## Testes e CI
 
-## Testes adicionados
+Foi criado workflow de CI para executar em push/PR:
 
-A Fase 2 adiciona testes para:
+1. `npm ci`;
+2. `npm run lint` com `node --check` em core e domínios;
+3. `npm test`.
 
-- utilitários extraídos;
-- regras de acesso e landing page por perfil;
-- transformação da configuração institucional;
-- ordem de carregamento dos módulos no renderer.
+A suíte cobre, além dos testes anteriores, utilitários extraídos, regras de acesso, configuração institucional e invariantes da arquitetura modular.
 
-Os testes existentes de data/hora, IMC, WhatsApp e tempo de espera permanecem no mesmo comando `npm test`.
+## Fora do escopo
 
-## Fora do escopo destas fases
-
-- redesign de sidebar, PEP ou outras telas;
-- troca de Electron;
-- troca de `sql.js`;
+- redesign visual;
+- upgrade do Electron;
 - backend/cloud;
-- alteração da regra de autenticação;
-- alteração dos perfis existentes;
-- mudança do banco ou migração de dados;
-- remoção de funcionalidades existentes.
+- troca do `sql.js`;
+- alteração da autenticação;
+- migração de banco;
+- novas funcionalidades clínicas.
 
-## Critério para iniciar o redesign
+## Próximo passo seguro
 
-O redesign pode começar sobre esta base quando `npm run lint` e `npm test` estiverem verdes na branch e o diff permanecer sem mudanças de schema ou regras funcionais. Cada página poderá então ser modernizada isoladamente, mantendo IDs/contratos ou migrando-os com testes específicos.
+Com lint e testes verdes, o redesign pode avançar página por página. A nova separação permite alterar Dashboard, Agenda, Pacientes, PEP e demais módulos isoladamente, reduzindo o risco de regressão cruzada.
