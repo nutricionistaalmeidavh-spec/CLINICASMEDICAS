@@ -1,8 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { parseXlsx } = require('./js/core/xlsx-node');
 
-// Desativa aceleração por hardware para evitar logs de GPU e falhas gráficas no Windows
 app.disableHardwareAcceleration();
 
 let mainWindow;
@@ -11,26 +11,25 @@ const CLINICAL_FILE_EXTENSIONS = new Set([
   '.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif',
   '.txt', '.csv', '.doc', '.docx', '.xls', '.xlsx'
 ]);
+const DOCUMENT_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+const MAX_DOCUMENT_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_IMPORT_BYTES = 12 * 1024 * 1024;
 
 function databasePath() {
   return path.join(app.getPath('userData'), DB_FILENAME);
 }
 
+function backupDirectory() {
+  return path.join(app.getPath('userData'), 'backups');
+}
+
 function clinicalMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const types = {
-    '.pdf': 'application/pdf',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
-    '.gif': 'image/gif',
-    '.txt': 'text/plain',
-    '.csv': 'text/csv',
-    '.doc': 'application/msword',
-    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    '.xls': 'application/vnd.ms-excel',
-    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp', '.gif': 'image/gif', '.txt': 'text/plain', '.csv': 'text/csv',
+    '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   };
   return types[ext] || null;
 }
@@ -41,95 +40,95 @@ function isAllowedClinicalFile(filePath) {
     && CLINICAL_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
+function createPreMigrationBackup(fromVersion = 0) {
+  const source = databasePath();
+  if (!fs.existsSync(source)) return { ok: true, skipped: true };
+  try {
+    const dir = backupDirectory();
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const target = path.join(dir, `pre-migration-v${Number(fromVersion) || 0}-${stamp}.db.enc`);
+    fs.copyFileSync(source, target);
+    const backups = fs.readdirSync(dir)
+      .filter(name => /^pre-migration-v.*\.db\.enc$/.test(name))
+      .map(name => ({ name, full: path.join(dir, name), mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    backups.slice(10).forEach(item => { try { fs.unlinkSync(item.full); } catch (_) { /* no-op */ } });
+    return { ok: true, path: target };
+  } catch (error) {
+    console.error('Falha ao criar backup pré-migração:', error);
+    return { ok: false, error: error.message };
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 750,
-    minWidth: 1100,
-    minHeight: 650,
+    width: 1280, height: 750, minWidth: 1100, minHeight: 650,
     backgroundColor: '#F5F5F5',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false
-    },
-    show: false,
-    title: 'Plennus Clinic'
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+    show: false, title: 'Plennus Clinic'
   });
-
   mainWindow.loadFile('index.html');
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    mainWindow.webContents.openDevTools(); // DEBUG TEMPORÁRIO — remover após diagnóstico
-  });
-
-  // Se ready-to-show demorar >5s, mostra de qualquer forma para debug
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isVisible()) {
-      mainWindow.show();
-      mainWindow.webContents.openDevTools();
-    }
-  }, 5000);
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  setTimeout(() => { if (mainWindow && !mainWindow.isVisible()) mainWindow.show(); }, 5000);
 }
 
 app.whenReady().then(() => {
   createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-// Backup / Restore
 ipcMain.handle('salvar-backup', async (event, data) => {
   const { filePath } = await dialog.showSaveDialog(mainWindow, {
-    title: 'Salvar Backup',
-    defaultPath: `backup_plennus_${new Date().toISOString().slice(0,10)}.db`,
+    title: 'Salvar Backup', defaultPath: `backup_plennus_${new Date().toISOString().slice(0,10)}.db`,
     filters: [{ name: 'Banco de Dados', extensions: ['db'] }]
   });
-  if (filePath) {
-    fs.writeFileSync(filePath, Buffer.from(data));
-    return { ok: true, path: filePath };
-  }
+  if (filePath) { fs.writeFileSync(filePath, Buffer.from(data)); return { ok: true, path: filePath }; }
   return { ok: false };
 });
 
 ipcMain.handle('abrir-backup', async () => {
   const { filePaths } = await dialog.showOpenDialog(mainWindow, {
-    title: 'Restaurar Backup',
-    filters: [{ name: 'Banco de Dados', extensions: ['db'] }],
-    properties: ['openFile']
+    title: 'Restaurar Backup', filters: [{ name: 'Banco de Dados', extensions: ['db'] }], properties: ['openFile']
   });
-  if (filePaths && filePaths[0]) {
-    const data = fs.readFileSync(filePaths[0]);
-    return { ok: true, data: Array.from(data) };
-  }
+  if (filePaths && filePaths[0]) return { ok: true, data: Array.from(fs.readFileSync(filePaths[0])) };
   return { ok: false };
+});
+
+ipcMain.handle('criar-backup-pre-migracao', (event, meta = {}) => createPreMigrationBackup(meta.fromVersion));
+
+ipcMain.handle('selecionar-arquivo-importacao', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Selecionar arquivo de pacientes', properties: ['openFile'],
+    filters: [{ name: 'Planilhas de pacientes', extensions: ['csv', 'xlsx'] }]
+  });
+  if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
+  const filePath = filePaths[0];
+  const ext = path.extname(filePath).toLowerCase();
+  if (!['.csv', '.xlsx'].includes(ext) || !fs.existsSync(filePath)) return { ok: false, error: 'Arquivo inválido.' };
+  const stat = fs.statSync(filePath);
+  if (stat.size > MAX_IMPORT_BYTES) return { ok: false, error: 'Arquivo excede o limite de 12 MB.' };
+  try {
+    const data = fs.readFileSync(filePath);
+    if (ext === '.csv') return { ok: true, type: 'csv', name: path.basename(filePath), text: data.toString('utf8') };
+    return { ok: true, type: 'xlsx', name: path.basename(filePath), rows: parseXlsx(data, 5000) };
+  } catch (error) {
+    console.error('Erro ao ler importação:', error);
+    return { ok: false, error: error.message };
+  }
 });
 
 ipcMain.handle('selecionar-arquivo-clinico', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-    title: 'Selecionar arquivo clínico',
-    properties: ['openFile'],
-    filters: [
-      { name: 'Documentos e imagens clínicas', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'csv', 'doc', 'docx', 'xls', 'xlsx'] }
-    ]
+    title: 'Selecionar arquivo clínico', properties: ['openFile'],
+    filters: [{ name: 'Documentos e imagens clínicas', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'csv', 'doc', 'docx', 'xls', 'xlsx'] }]
   });
   if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
   const filePath = filePaths[0];
   if (!isAllowedClinicalFile(filePath) || !fs.existsSync(filePath)) return { ok: false };
-  return {
-    ok: true,
-    path: filePath,
-    name: path.basename(filePath),
-    mimeType: clinicalMimeType(filePath)
-  };
+  return { ok: true, path: filePath, name: path.basename(filePath), mimeType: clinicalMimeType(filePath) };
 });
 
 ipcMain.handle('abrir-arquivo-clinico', async (event, filePath) => {
@@ -143,20 +142,24 @@ ipcMain.handle('abrir-arquivo-clinico', async (event, filePath) => {
   }
 });
 
+ipcMain.handle('ler-imagem-clinica-para-documento', async (event, filePath) => {
+  if (typeof filePath !== 'string' || !path.isAbsolute(filePath) || !fs.existsSync(filePath)) return { ok: false };
+  const ext = path.extname(filePath).toLowerCase();
+  if (!DOCUMENT_IMAGE_EXTENSIONS.has(ext)) return { ok: false };
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile() || stat.size > MAX_DOCUMENT_IMAGE_BYTES) return { ok: false, error: 'Imagem excede o limite permitido.' };
+  const mime = clinicalMimeType(filePath);
+  const data = fs.readFileSync(filePath).toString('base64');
+  return { ok: true, name: path.basename(filePath), dataUrl: `data:${mime};base64,${data}` };
+});
+
 ipcMain.handle('salvar-documento', async (event, conteudo, nomePadrao) => {
   if (typeof conteudo !== 'string' || conteudo.length > 5_000_000) return { ok: false };
   const { filePath } = await dialog.showSaveDialog(mainWindow, {
-    title: 'Salvar Documento',
-    defaultPath: nomePadrao || 'documento.txt',
-    filters: [
-      { name: 'Texto', extensions: ['txt'] },
-      { name: 'Todos', extensions: ['*'] }
-    ]
+    title: 'Salvar Documento', defaultPath: nomePadrao || 'documento.txt',
+    filters: [{ name: 'Texto', extensions: ['txt'] }, { name: 'Todos', extensions: ['*'] }]
   });
-  if (filePath) {
-    fs.writeFileSync(filePath, conteudo, 'utf-8');
-    return { ok: true, path: filePath };
-  }
+  if (filePath) { fs.writeFileSync(filePath, conteudo, 'utf-8'); return { ok: true, path: filePath }; }
   return { ok: false };
 });
 
@@ -164,35 +167,18 @@ ipcMain.handle('gerar-pdf', async (event, htmlContent, nomePadrao) => {
   if (typeof htmlContent !== 'string' || htmlContent.length > 5_000_000) return { ok: false };
   let printWin = null;
   try {
-    printWin = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
-
+    printWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-
     const pdfBuffer = await printWin.webContents.printToPDF({
-      printBackground: true,
-      pageSize: 'A4',
+      printBackground: true, pageSize: 'A4',
       margins: { marginType: 'custom', top: 0.4, bottom: 0.4, left: 0.5, right: 0.5 }
     });
-
-    printWin.close();
-    printWin = null;
-
+    printWin.close(); printWin = null;
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
-      title: 'Salvar Documento em PDF',
-      defaultPath: nomePadrao || `documento_${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Salvar Documento em PDF', defaultPath: nomePadrao || `documento_${new Date().toISOString().slice(0, 10)}.pdf`,
       filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
     });
-
-    if (filePath) {
-      fs.writeFileSync(filePath, pdfBuffer);
-      return { ok: true, path: filePath };
-    }
+    if (filePath) { fs.writeFileSync(filePath, pdfBuffer); return { ok: true, path: filePath }; }
     return { ok: false, cancelado: true };
   } catch (err) {
     if (printWin) printWin.close();
@@ -205,22 +191,9 @@ ipcMain.handle('imprimir-documento', async (event, htmlContent) => {
   if (typeof htmlContent !== 'string' || htmlContent.length > 5_000_000) return { ok: false };
   let printWin = null;
   try {
-    printWin = new BrowserWindow({
-      width: 800,
-      height: 900,
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
-
+    printWin = new BrowserWindow({ width: 800, height: 900, show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-
-    printWin.webContents.print({ silent: false, printBackground: true }, () => {
-      if (printWin) printWin.close();
-    });
-
+    printWin.webContents.print({ silent: false, printBackground: true }, () => { if (printWin) printWin.close(); });
     return { ok: true };
   } catch (err) {
     if (printWin) printWin.close();
@@ -231,13 +204,8 @@ ipcMain.handle('imprimir-documento', async (event, htmlContent) => {
 
 ipcMain.handle('abrir-url-externa', async (event, url) => {
   if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
-    try {
-      await shell.openExternal(url);
-      return { ok: true };
-    } catch (e) {
-      console.error('Erro ao abrir URL:', e);
-      return { ok: false };
-    }
+    try { await shell.openExternal(url); return { ok: true }; }
+    catch (e) { console.error('Erro ao abrir URL:', e); return { ok: false }; }
   }
   return { ok: false };
 });
