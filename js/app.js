@@ -9,8 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await DB.init();
     if (!DB.isReady()) throw new Error('Banco não ficou pronto');
+    window.PlennusShell?.setupShell();
+    window.PlennusImports?.ensureImportUi();
     setupNavigation();
     setupTabs();
+    window.PlennusGlobalSearch?.setupGlobalSearch();
     if (window.__initialPassword) {
       alert(`Primeiro acesso criado. Usuário: admin\nSenha temporária: ${window.__initialPassword}\nGuarde-a em local seguro.`);
     }
