@@ -8,6 +8,12 @@
     'js/domains/documents.js',
     'js/domains/finance.js',
     'js/domains/settings.js',
+    'js/domains/patient-workspace.js',
+    'js/domains/clinical-files.js',
+    'js/domains/consents.js',
+    'js/domains/labs.js',
+    'js/domains/clinical-timeline.js',
+    'js/domains/clinical-pending.js',
   ];
 
   // Transitional compatibility loader: navigation.js is already referenced by index.html.
