@@ -3,10 +3,23 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-test('renderer loads extracted core modules after the legacy compatibility layer', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const root = path.join(__dirname, '..');
+
+const DOMAIN_PATHS = [
+  'js/domains/dashboard.js',
+  'js/domains/patients.js',
+  'js/domains/professionals.js',
+  'js/domains/agenda.js',
+  'js/domains/pep.js',
+  'js/domains/documents.js',
+  'js/domains/finance.js',
+  'js/domains/settings.js',
+];
+
+test('renderer keeps bootstrap before core compatibility modules', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const appIndex = html.indexOf('src="js/app.js"');
-  const modulePaths = [
+  const corePaths = [
     'js/core/utils.js',
     'js/core/access-control.js',
     'js/core/clinic.js',
@@ -14,9 +27,26 @@ test('renderer loads extracted core modules after the legacy compatibility layer
     'js/core/navigation.js',
   ];
 
-  assert.ok(appIndex >= 0, 'legacy app compatibility layer must still be loaded');
-  for (const modulePath of modulePaths) {
+  assert.ok(appIndex >= 0, 'renderer bootstrap must be loaded');
+  for (const modulePath of corePaths) {
     const moduleIndex = html.indexOf(`src="${modulePath}"`);
     assert.ok(moduleIndex > appIndex, `${modulePath} must load after js/app.js`);
   }
+});
+
+test('navigation compatibility shell declares every extracted domain', () => {
+  const source = fs.readFileSync(path.join(root, 'js/core/navigation.js'), 'utf8');
+  for (const domainPath of DOMAIN_PATHS) {
+    assert.ok(source.includes(`'${domainPath}'`), `${domainPath} must be registered in the domain loader`);
+    assert.ok(fs.existsSync(path.join(root, domainPath)), `${domainPath} must exist`);
+  }
+});
+
+test('app.js is only renderer bootstrap and no longer owns business domains', () => {
+  const source = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+  assert.ok(source.length < 2500, `app.js should stay a small bootstrap, got ${source.length} chars`);
+  assert.equal(source.includes('function carregarPacientes'), false);
+  assert.equal(source.includes('function salvarAtendimentoPep'), false);
+  assert.equal(source.includes('function registrarCaixa'), false);
+  assert.equal(source.includes('function carregarAgendaVisual'), false);
 });
