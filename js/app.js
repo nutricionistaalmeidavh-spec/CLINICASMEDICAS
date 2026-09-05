@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.PlennusAudit?.installDbAudit(DB);
     window.PlennusShell?.setupShell();
     window.PlennusImports?.ensureImportUi();
+    window.PlennusAuditView?.ensureAuditUi();
     setupNavigation();
     setupTabs();
     window.PlennusGlobalSearch?.setupGlobalSearch();
