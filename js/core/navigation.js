@@ -2,6 +2,7 @@
   const CORE_SCRIPTS = [
     'js/core/clinical-model.js',
     'js/core/operations-model.js',
+    'js/core/workflow-guards.js',
     'js/core/odontology-model.js',
     'js/core/migrations.js',
     'js/core/audit.js',
@@ -37,6 +38,7 @@
     'js/domains/whatsapp-automation.js',
     'js/domains/whatsapp-recurring.js',
     'js/domains/operations-integration.js',
+    'js/domains/workflow-stabilization.js',
   ];
 
   function loadDomainScripts() {
