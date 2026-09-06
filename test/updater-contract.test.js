@@ -89,13 +89,16 @@ test('não instala antes do download e instala somente quando pronto', () => {
   assert.equal(autoUpdater.installCalls, 1);
 });
 
-test('main, preload e configurações expõem somente o contrato restrito do updater', () => {
-  const main = read('main.js');
+test('bootstrap, preload e configurações expõem somente o contrato restrito do updater', () => {
+  const pkg = readJson('package.json');
+  assert.equal(pkg.main, 'updater-main.js');
+  const bootstrap = read('updater-main.js');
   const preload = read('preload.js');
   const settings = read('js/domains/settings.js');
 
+  assert.match(bootstrap, /require\('\.\/main\.js'\)/);
   for (const channel of ['updater:state', 'updater:check', 'updater:download', 'updater:install']) {
-    assert.match(main, new RegExp(channel.replace(':', '\\:')));
+    assert.match(bootstrap, new RegExp(channel.replace(':', '\\:')));
   }
   assert.match(preload, /updater:\s*\{/);
   assert.match(preload, /onStateChanged/);
