@@ -380,6 +380,46 @@ function getLastId() {
   return db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
 }
 
+function validateDatabaseCandidate(data) {
+  if (!SQL) throw new Error('Banco de dados ainda não está pronto.');
+  const candidate = new SQL.Database(new Uint8Array(data));
+  try {
+    const integrity = candidate.exec('PRAGMA integrity_check');
+    const integrityOk = integrity?.[0]?.values?.[0]?.[0] === 'ok';
+    if (!integrityOk) throw new Error('Falha na verificação de integridade do banco.');
+
+    const tableResult = candidate.exec("SELECT name FROM sqlite_master WHERE type='table'");
+    const tables = new Set((tableResult?.[0]?.values || []).map(row => row[0]));
+    for (const required of ['usuarios', 'pacientes', 'agenda', 'configuracoes']) {
+      if (!tables.has(required)) throw new Error(`Backup incompatível: tabela ${required} ausente.`);
+    }
+    return candidate;
+  } catch (error) {
+    candidate.close();
+    throw error;
+  }
+}
+
+async function restoreValidatedDatabase(data) {
+  const candidate = validateDatabaseCandidate(data);
+  const exported = Array.from(candidate.export());
+  try {
+    if (window.electronAPI) {
+      const result = await window.electronAPI.salvarBanco(exported);
+      if (!result?.ok) throw new Error('Não foi possível persistir o banco restaurado.');
+    } else {
+      localStorage.setItem(DB_KEY, JSON.stringify(exported));
+    }
+    const previous = db;
+    db = candidate;
+    if (previous && previous !== candidate) previous.close();
+    return { ok: true };
+  } catch (error) {
+    candidate.close();
+    throw error;
+  }
+}
+
 // Export helpers
 window.DB = {
   init: initDatabase,
@@ -388,10 +428,9 @@ window.DB = {
   save: saveDatabase,
   getLastId,
   export: () => db ? db.export() : null,
-  load: (data) => {
-    db = new SQL.Database(new Uint8Array(data));
-    saveDatabase();
-  },
+  validateBackup: validateDatabaseCandidate,
+  restoreValidated: restoreValidatedDatabase,
+  load: restoreValidatedDatabase,
   isReady: () => !!db
 };
 
