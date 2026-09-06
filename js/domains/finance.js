@@ -1,4 +1,18 @@
+function financeRole() {
+  return typeof currentUser !== 'undefined' ? currentUser?.nivel || null : null;
+}
+
+function canManageCash() {
+  return financeRole() === 'admin' || financeRole() === 'recepcao';
+}
+
+function canManagePayouts() {
+  const access = window.PlennusAccessControl;
+  return typeof access?.canManagePayouts === 'function' ? access.canManagePayouts(financeRole()) : financeRole() === 'admin';
+}
+
 function carregarCaixa() {
+  if (!canManageCash()) return;
   const rows = DB.query('SELECT * FROM caixa ORDER BY data DESC LIMIT 100');
   let entradas = 0, saidas = 0;
   document.getElementById('tabela-caixa').innerHTML = rows.map(r => {
@@ -14,6 +28,7 @@ function carregarCaixa() {
 }
 
 function registrarCaixa() {
+  if (!canManageCash()) return alert('Acesso ao caixa não autorizado.');
   const desc = document.getElementById('cx-desc').value.trim();
   const valorStr = document.getElementById('cx-valor').value.replace(',', '.');
   if (!desc || !valorStr) return alert('Preencha descrição e valor.');
@@ -28,11 +43,13 @@ function registrarCaixa() {
 }
 
 function carregarSelectsRepasse() {
+  if (!canManagePayouts()) return;
   const profs = DB.query('SELECT id, nome FROM profissionais WHERE ativo=1 ORDER BY nome');
   document.getElementById('rep-prof').innerHTML = profs.map(p => `<option value="${p.id}">${p.nome}</option>`).join('') || '<option>Nenhum</option>';
 }
 
 function carregarRepasses() {
+  if (!canManagePayouts()) return;
   const rows = DB.query(`
     SELECT r.*, p.nome as profissional FROM repasses r
     LEFT JOIN profissionais p ON p.id=r.profissional_id ORDER BY r.criado_em DESC`);
@@ -47,6 +64,7 @@ function carregarRepasses() {
 }
 
 function registrarRepasse() {
+  if (!canManagePayouts()) return alert('Apenas administradores podem registrar repasses.');
   const pid = document.getElementById('rep-prof').value;
   if (!pid) return alert('Selecione um profissional.');
   const bruto = parseFloat((document.getElementById('rep-bruto').value || '0').replace(',', '.'));
@@ -64,6 +82,7 @@ function registrarRepasse() {
 }
 
 function marcarRepassePago() {
+  if (!canManagePayouts()) return alert('Apenas administradores podem liquidar repasses.');
   if (!selectedRepasseId) return alert('Selecione um repasse na tabela.');
   DB.run('UPDATE repasses SET status=?, data_pagamento=? WHERE id=?', ['pago', hoje(), selectedRepasseId]);
   selectedRepasseId = null;
