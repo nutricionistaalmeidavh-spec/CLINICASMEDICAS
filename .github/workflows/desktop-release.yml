@@ -1,0 +1,100 @@
+name: Plennus Desktop Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'main.js'
+      - 'updater-main.js'
+      - 'preload.js'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'js/**'
+      - 'css/**'
+      - 'assets/**'
+      - '.github/workflows/desktop-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate syntax
+        run: npm run lint
+
+      - name: Run automated tests
+        run: npm test
+
+      - name: Resolve automatic release version
+        shell: pwsh
+        run: |
+          $base = (Get-Content package.json | ConvertFrom-Json).version
+          $parts = $base.Split('.')
+          if ($parts.Length -lt 2) { throw "Invalid base version: $base" }
+          $version = "$($parts[0]).$($parts[1]).${{ github.run_number }}"
+          npm version $version --no-git-tag-version --allow-same-version
+          "DESKTOP_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Build Windows installer
+        run: npm run build
+
+      - name: Verify updater artifacts
+        shell: pwsh
+        run: |
+          $release = "dist"
+          $required = @(
+            "$release/Plennus-Clinic-Setup-$env:DESKTOP_VERSION.exe",
+            "$release/Plennus-Clinic-Setup-$env:DESKTOP_VERSION.exe.blockmap",
+            "$release/latest.yml"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Updater artifact missing: $file" }
+          }
+
+      - name: Upload validated installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plennus-Clinic-${{ env.DESKTOP_VERSION }}-Windows
+          path: |
+            dist/Plennus-Clinic-Setup-${{ env.DESKTOP_VERSION }}.exe
+            dist/Plennus-Clinic-Setup-${{ env.DESKTOP_VERSION }}.exe.blockmap
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "plennus-clinic-v$env:DESKTOP_VERSION"
+          $assets = @(
+            "dist/Plennus-Clinic-Setup-$env:DESKTOP_VERSION.exe",
+            "dist/Plennus-Clinic-Setup-$env:DESKTOP_VERSION.exe.blockmap",
+            "dist/latest.yml"
+          )
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag $assets --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Plennus Clinic v$env:DESKTOP_VERSION" --notes "Instalador Windows e metadados de atualização automática validados pelo CI."
+          } else {
+            gh release upload $tag $assets --repo "${{ github.repository }}" --clobber
+          }
