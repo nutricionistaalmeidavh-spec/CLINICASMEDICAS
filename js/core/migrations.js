@@ -201,6 +201,113 @@
         )`,
         `CREATE INDEX IF NOT EXISTS idx_whatsapp_fila ON mensagens_whatsapp(status,agendada_para)`
       ]
+    },
+    {
+      version: 3,
+      name: 'block_b_odontology',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS odontogramas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          paciente_id INTEGER NOT NULL UNIQUE,
+          observacao TEXT,
+          criado_em TEXT DEFAULT (datetime('now','localtime')),
+          atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS odontograma_condicoes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          odontograma_id INTEGER NOT NULL,
+          dente INTEGER NOT NULL,
+          face TEXT,
+          condicao TEXT NOT NULL,
+          observacao TEXT,
+          ativo INTEGER DEFAULT 1,
+          registrado_por INTEGER,
+          criado_em TEXT DEFAULT (datetime('now','localtime')),
+          atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (odontograma_id) REFERENCES odontogramas(id),
+          FOREIGN KEY (registrado_por) REFERENCES usuarios(id)
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_odonto_condicoes_odontograma ON odontograma_condicoes(odontograma_id,dente,ativo)`,
+        `CREATE TABLE IF NOT EXISTS planos_tratamento (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          paciente_id INTEGER NOT NULL,
+          profissional_id INTEGER,
+          titulo TEXT NOT NULL,
+          status TEXT DEFAULT 'rascunho' CHECK (status IN ('rascunho','proposto','aprovado','em_tratamento','concluido','cancelado')),
+          observacao TEXT,
+          valor_total REAL DEFAULT 0 CHECK (valor_total >= 0),
+          criado_em TEXT DEFAULT (datetime('now','localtime')),
+          atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (paciente_id) REFERENCES pacientes(id),
+          FOREIGN KEY (profissional_id) REFERENCES profissionais(id)
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_planos_paciente_status ON planos_tratamento(paciente_id,status,criado_em)`,
+        `CREATE TABLE IF NOT EXISTS plano_tratamento_itens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plano_id INTEGER NOT NULL,
+          procedimento_id INTEGER,
+          profissional_id INTEGER,
+          descricao TEXT NOT NULL,
+          dente INTEGER,
+          face TEXT,
+          quantidade REAL DEFAULT 1 CHECK (quantidade > 0),
+          valor_unitario REAL DEFAULT 0 CHECK (valor_unitario >= 0),
+          desconto REAL DEFAULT 0 CHECK (desconto >= 0),
+          valor_total REAL DEFAULT 0 CHECK (valor_total >= 0),
+          status TEXT DEFAULT 'planejado' CHECK (status IN ('planejado','agendado','realizado','cancelado')),
+          agenda_id INTEGER,
+          realizado_em TEXT,
+          criado_em TEXT DEFAULT (datetime('now','localtime')),
+          atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (plano_id) REFERENCES planos_tratamento(id),
+          FOREIGN KEY (procedimento_id) REFERENCES procedimentos(id),
+          FOREIGN KEY (profissional_id) REFERENCES profissionais(id),
+          FOREIGN KEY (agenda_id) REFERENCES agenda(id)
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_plano_itens_plano_status ON plano_tratamento_itens(plano_id,status)`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_plano_item_agenda_unique ON plano_tratamento_itens(agenda_id) WHERE agenda_id IS NOT NULL`,
+        `CREATE TABLE IF NOT EXISTS orcamentos_odontologicos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plano_id INTEGER NOT NULL,
+          paciente_id INTEGER NOT NULL,
+          versao INTEGER NOT NULL DEFAULT 1,
+          status TEXT DEFAULT 'rascunho' CHECK (status IN ('rascunho','enviado','parcial','aprovado','recusado','cancelado')),
+          valor_bruto REAL DEFAULT 0 CHECK (valor_bruto >= 0),
+          desconto REAL DEFAULT 0 CHECK (desconto >= 0),
+          valor_total REAL DEFAULT 0 CHECK (valor_total >= 0),
+          validade_em TEXT,
+          enviado_em TEXT,
+          decidido_em TEXT,
+          crm_oportunidade_id INTEGER,
+          observacao TEXT,
+          criado_em TEXT DEFAULT (datetime('now','localtime')),
+          atualizado_em TEXT DEFAULT (datetime('now','localtime')),
+          UNIQUE (plano_id,versao),
+          FOREIGN KEY (plano_id) REFERENCES planos_tratamento(id),
+          FOREIGN KEY (paciente_id) REFERENCES pacientes(id),
+          FOREIGN KEY (crm_oportunidade_id) REFERENCES crm_oportunidades(id)
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_orcamento_paciente_status ON orcamentos_odontologicos(paciente_id,status,criado_em)`,
+        `CREATE TABLE IF NOT EXISTS orcamento_odontologico_itens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          orcamento_id INTEGER NOT NULL,
+          plano_item_id INTEGER NOT NULL,
+          descricao TEXT NOT NULL,
+          dente INTEGER,
+          face TEXT,
+          quantidade REAL DEFAULT 1,
+          valor_unitario REAL DEFAULT 0,
+          desconto REAL DEFAULT 0,
+          valor_total REAL DEFAULT 0,
+          status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente','aprovado','recusado')),
+          decidido_em TEXT,
+          UNIQUE (orcamento_id,plano_item_id),
+          FOREIGN KEY (orcamento_id) REFERENCES orcamentos_odontologicos(id),
+          FOREIGN KEY (plano_item_id) REFERENCES plano_tratamento_itens(id)
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_orcamento_itens_status ON orcamento_odontologico_itens(orcamento_id,status)`
+      ]
     }
   ];
 
