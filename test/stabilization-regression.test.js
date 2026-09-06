@@ -22,6 +22,14 @@ test('settings protects clinic identity, user administration and backup actions'
   assert.match(settings, /mínimo 10 caracteres/i);
 });
 
+test('legacy default password must be replaced before entering the application', () => {
+  const auth = read('js/core/auth.js');
+  assert.match(auth, /requireDefaultPasswordReplacement/);
+  assert.match(auth, /suppliedPassword !== '123'/);
+  assert.match(auth, /pelo menos 10 caracteres/i);
+  assert.match(auth, /UPDATE usuarios SET senha=/);
+});
+
 test('restore validates SQLite integrity before replacing the active database', () => {
   const database = read('js/database.js');
   assert.match(database, /PRAGMA integrity_check/);
