@@ -17,3 +17,7 @@ test('Windows packaging is x64-only', () => {
   assert.equal(pkg.scripts['build:win32'], undefined);
   assert.deepEqual(pkg.build.win.target, [{ target: 'nsis', arch: ['x64'] }]);
 });
+
+test('CI packaging never attempts to publish a release implicitly', () => {
+  assert.match(pkg.scripts.build, /--publish\s+never/);
+});
