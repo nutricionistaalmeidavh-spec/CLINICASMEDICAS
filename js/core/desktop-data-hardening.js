@@ -6,6 +6,12 @@ const backupFormat = require('./backup-format');
 
 const DB_FILENAME = 'plennus-clinic.db.enc';
 const CLINICAL_EXTENSIONS = new Set(['.pdf','.png','.jpg','.jpeg','.webp','.gif','.txt','.csv','.doc','.docx','.xls','.xlsx']);
+const CLINICAL_MIME_TYPES = {
+  '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.gif': 'image/gif', '.txt': 'text/plain', '.csv': 'text/csv',
+  '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+};
 
 function databasePath() {
   return path.join(app.getPath('userData'), DB_FILENAME);
@@ -17,6 +23,10 @@ function backupDirectory() {
 
 function clinicalFilesDirectory() {
   return path.join(app.getPath('userData'), 'clinical-files');
+}
+
+function restoreStagingDirectory() {
+  return path.join(app.getPath('userData'), 'restore-staging');
 }
 
 function ensureDirectory(dir) {
@@ -40,6 +50,10 @@ function replaceHandler(channel, handler) {
   ipcMain.handle(channel, handler);
 }
 
+function clinicalMimeType(filePath) {
+  return CLINICAL_MIME_TYPES[path.extname(filePath).toLowerCase()] || null;
+}
+
 function isManagedClinicalPath(filePath) {
   if (typeof filePath !== 'string' || !path.isAbsolute(filePath)) return false;
   const root = path.resolve(clinicalFilesDirectory()) + path.sep;
@@ -61,7 +75,7 @@ function copyClinicalFileIntoManagedStorage(sourcePath) {
   const managedName = `${crypto.randomUUID()}${ext}`;
   const target = path.join(dir, managedName);
   fs.copyFileSync(sourcePath, target);
-  return { path: target, name: path.basename(sourcePath), managedName };
+  return { path: target, name: path.basename(sourcePath), managedName, mimeType: clinicalMimeType(sourcePath) };
 }
 
 function listManagedClinicalFiles() {
@@ -75,28 +89,88 @@ function listManagedClinicalFiles() {
       if (!entry.isFile()) return;
       const relativePath = path.relative(dir, full).replace(/\\/g, '/');
       if (!relativePath || relativePath.includes('..')) return;
-      files.push({ relativePath, name: entry.name, data: fs.readFileSync(full) });
+      files.push({ relativePath, name: entry.name, mimeType: clinicalMimeType(full), data: fs.readFileSync(full) });
     });
   };
   walk(dir);
   return files;
 }
 
-function restoreManagedClinicalFiles(files) {
-  const dir = ensureDirectory(clinicalFilesDirectory());
-  const safety = fs.existsSync(dir) && fs.readdirSync(dir).length ? safeSnapshot(dir, 'clinical-files-pre-restore') : null;
+function validRestoreSessionId(value) {
+  return typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value);
+}
+
+function restoreSessionPath(sessionId) {
+  if (!validRestoreSessionId(sessionId)) throw new Error('Sessão de restauração inválida.');
+  return path.join(restoreStagingDirectory(), sessionId);
+}
+
+function stageManagedClinicalFiles(files) {
+  const sessionId = crypto.randomUUID();
+  const sessionRoot = restoreSessionPath(sessionId);
+  const filesRoot = path.join(sessionRoot, 'clinical-files');
+  ensureDirectory(filesRoot);
   for (const file of files || []) {
     const relativePath = String(file.relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
     if (!relativePath || relativePath.includes('..')) throw new Error('Backup contém caminho de anexo inválido.');
-    const target = path.resolve(dir, relativePath);
-    if (!target.startsWith(path.resolve(dir) + path.sep)) throw new Error('Backup contém caminho de anexo inválido.');
+    const target = path.resolve(filesRoot, relativePath);
+    if (!target.startsWith(path.resolve(filesRoot) + path.sep)) throw new Error('Backup contém caminho de anexo inválido.');
     ensureDirectory(path.dirname(target));
     fs.writeFileSync(target, Buffer.from(file.data), { mode: 0o600 });
   }
-  return safety;
+  fs.writeFileSync(path.join(sessionRoot, 'manifest.json'), JSON.stringify({ createdAt: new Date().toISOString(), files: (files || []).length }), { mode: 0o600 });
+  return sessionId;
+}
+
+function cancelStagedClinicalFiles(sessionId) {
+  const sessionRoot = restoreSessionPath(sessionId);
+  fs.rmSync(sessionRoot, { recursive: true, force: true });
+  return { ok: true };
+}
+
+function commitStagedClinicalFiles(sessionId) {
+  const sessionRoot = restoreSessionPath(sessionId);
+  const source = path.join(sessionRoot, 'clinical-files');
+  if (!fs.existsSync(source)) throw new Error('Sessão de restauração expirada ou inexistente.');
+  const target = clinicalFilesDirectory();
+  const safety = fs.existsSync(target) ? safeSnapshot(target, 'clinical-files-pre-restore') : null;
+  const swap = path.join(app.getPath('userData'), `clinical-files.restore-${crypto.randomUUID()}`);
+  try {
+    fs.cpSync(source, swap, { recursive: true });
+    fs.rmSync(target, { recursive: true, force: true });
+    fs.renameSync(swap, target);
+    fs.rmSync(sessionRoot, { recursive: true, force: true });
+    return { ok: true, safetyBackup: safety };
+  } catch (error) {
+    try { fs.rmSync(swap, { recursive: true, force: true }); } catch (_) { /* no-op */ }
+    if (safety && fs.existsSync(safety)) {
+      try {
+        fs.rmSync(target, { recursive: true, force: true });
+        fs.cpSync(safety, target, { recursive: true });
+      } catch (restoreError) {
+        console.error('Falha ao restaurar snapshot de anexos:', restoreError);
+      }
+    }
+    throw error;
+  }
+}
+
+function pruneRestoreStaging(maxAgeMs = 24 * 60 * 60 * 1000) {
+  const dir = restoreStagingDirectory();
+  if (!fs.existsSync(dir)) return;
+  const now = Date.now();
+  fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+    if (!entry.isDirectory() || !validRestoreSessionId(entry.name)) return;
+    const full = path.join(dir, entry.name);
+    try {
+      if (now - fs.statSync(full).mtimeMs > maxAgeMs) fs.rmSync(full, { recursive: true, force: true });
+    } catch (_) { /* no-op */ }
+  });
 }
 
 function installDesktopDataHardening() {
+  pruneRestoreStaging();
+
   replaceHandler('carregar-banco', () => {
     const filePath = databasePath();
     if (!fs.existsSync(filePath)) return null;
@@ -140,7 +214,7 @@ function installDesktopDataHardening() {
     if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
     try {
       const managed = copyClinicalFileIntoManagedStorage(filePaths[0]);
-      return { ok: true, path: managed.path, name: managed.name, managed: true };
+      return { ok: true, path: managed.path, name: managed.name, mimeType: managed.mimeType, managed: true };
     } catch (error) {
       return { ok: false, error: error.message };
     }
@@ -190,31 +264,40 @@ function installDesktopDataHardening() {
         return { ok: false, error: 'Arquivo de backup inválido ou muito grande.' };
       }
       let databaseBytes;
-      let files = [];
       let legacy = false;
+      let attachmentRestoreSession = null;
       if (path.extname(filePath).toLowerCase() === '.db') {
         databaseBytes = backupFormat.validateSqliteBytes(fs.readFileSync(filePath));
         legacy = true;
       } else {
         const restored = backupFormat.decryptPortableBackup(fs.readFileSync(filePath, 'utf8'), password);
         databaseBytes = restored.databaseBytes;
-        files = restored.files;
         legacy = restored.legacy;
+        if (!legacy) attachmentRestoreSession = stageManagedClinicalFiles(restored.files);
       }
       const dbSafety = safeSnapshot(databasePath(), 'pre-restore.db.enc');
-      const attachmentsSafety = files.length ? restoreManagedClinicalFiles(files) : null;
       return {
         ok: true,
         data: Array.from(databaseBytes),
         legacy,
-        portable: files.length > 0,
+        portable: !legacy,
         safetyBackup: dbSafety,
-        attachmentsSafetyBackup: attachmentsSafety
+        attachmentRestoreSession
       };
     } catch (error) {
       console.error('Falha ao abrir backup:', error);
       return { ok: false, error: error.message };
     }
+  });
+
+  replaceHandler('confirmar-restauracao-anexos', (_event, sessionId) => {
+    try { return commitStagedClinicalFiles(sessionId); }
+    catch (error) { return { ok: false, error: error.message }; }
+  });
+
+  replaceHandler('cancelar-restauracao-anexos', (_event, sessionId) => {
+    try { return cancelStagedClinicalFiles(sessionId); }
+    catch (error) { return { ok: false, error: error.message }; }
   });
 }
 
@@ -222,6 +305,8 @@ module.exports = {
   installDesktopDataHardening,
   copyClinicalFileIntoManagedStorage,
   listManagedClinicalFiles,
-  restoreManagedClinicalFiles,
+  stageManagedClinicalFiles,
+  commitStagedClinicalFiles,
+  cancelStagedClinicalFiles,
   isManagedClinicalPath
 };
