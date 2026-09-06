@@ -20,15 +20,37 @@
     return role === 'admin' || role === 'medico' ? 'prontuario' : 'pacientes';
   }
 
+  function patientNameSearchExpression(column = 'nome') {
+    const safeColumn = column === 'nome' ? 'nome' : 'nome';
+    const replacements = [
+      ['Á','A'],['À','A'],['Â','A'],['Ã','A'],['Ä','A'],
+      ['É','E'],['È','E'],['Ê','E'],['Ë','E'],
+      ['Í','I'],['Ì','I'],['Î','I'],['Ï','I'],
+      ['Ó','O'],['Ò','O'],['Ô','O'],['Õ','O'],['Ö','O'],
+      ['Ú','U'],['Ù','U'],['Û','U'],['Ü','U'],['Ç','C'],
+      ['á','a'],['à','a'],['â','a'],['ã','a'],['ä','a'],
+      ['é','e'],['è','e'],['ê','e'],['ë','e'],
+      ['í','i'],['ì','i'],['î','i'],['ï','i'],
+      ['ó','o'],['ò','o'],['ô','o'],['õ','o'],['ö','o'],
+      ['ú','u'],['ù','u'],['û','u'],['ü','u'],['ç','c']
+    ];
+    let expression = safeColumn;
+    replacements.forEach(([from, to]) => {
+      expression = `REPLACE(${expression},'${from}','${to}')`;
+    });
+    return `LOWER(${expression})`;
+  }
+
   function buildPatientSearchSql(term, limit = 8) {
     const text = normalizeSearchTerm(term);
     const digits = normalizeCpf(term);
     const like = `%${text}%`;
     const phoneLike = `%${digits}%`;
+    const nameExpression = patientNameSearchExpression();
     return {
       sql: `SELECT id,nome,cpf,celular,telefone FROM pacientes
             WHERE ativo=1 AND (
-              LOWER(nome) LIKE ? OR
+              ${nameExpression} LIKE ? OR
               REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') LIKE ? OR
               REPLACE(REPLACE(REPLACE(REPLACE(celular,'(',''),')',''),'-',''),' ','') LIKE ? OR
               REPLACE(REPLACE(REPLACE(REPLACE(telefone,'(',''),')',''),'-',''),' ','') LIKE ?
@@ -71,10 +93,13 @@
     const container = document.getElementById('global-search-results');
     if (container) container.hidden = true;
     if (destination === 'prontuario') {
-      const select = document.getElementById('pep-paciente');
-      if (select) select.value = String(patientId);
       if (typeof navegar === 'function') navegar('prontuario');
-      if (typeof selecionarPacientePep === 'function') selecionarPacientePep();
+      if (typeof selecionarPacientePep === 'function') {
+        selecionarPacientePep(patientId);
+      } else {
+        const select = document.getElementById('pep-paciente');
+        if (select) select.value = String(patientId);
+      }
       return;
     }
     if (typeof navegar === 'function') navegar('pacientes');
@@ -113,6 +138,7 @@
     normalizeSearchTerm,
     normalizeCpf,
     destinationForRole,
+    patientNameSearchExpression,
     buildPatientSearchSql,
     searchPatients,
     renderResults,
