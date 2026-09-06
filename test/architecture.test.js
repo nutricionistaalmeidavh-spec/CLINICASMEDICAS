@@ -27,6 +27,7 @@ const DOMAIN_PATHS = [
   'js/domains/inventory.js',
   'js/domains/crm.js',
   'js/domains/whatsapp-automation.js',
+  'js/domains/whatsapp-recurring.js',
   'js/domains/operations-integration.js',
 ];
 
