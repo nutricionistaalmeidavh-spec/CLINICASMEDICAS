@@ -30,6 +30,7 @@
     'js/domains/audit-view.js',
     'js/domains/platform-documents.js',
     'js/domains/odontology.js',
+    'js/domains/dental-finance.js',
     'js/domains/finance-advanced.js',
     'js/domains/inventory.js',
     'js/domains/crm.js',
