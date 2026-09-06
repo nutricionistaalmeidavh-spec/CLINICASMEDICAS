@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createUpdaterService } = require('./js/core/updater-service');
+const { installDesktopDataHardening } = require('./js/core/desktop-data-hardening');
 
-// Mantém o bootstrap clínico existente intacto e acopla atualização como camada isolada.
+// Mantém o bootstrap clínico existente e aplica hardening de persistência antes da janela iniciar o renderer.
 require('./main.js');
+installDesktopDataHardening();
 
 let updater = null;
 
