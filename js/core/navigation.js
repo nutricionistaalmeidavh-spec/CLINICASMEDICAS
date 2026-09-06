@@ -32,6 +32,7 @@
     'js/domains/inventory.js',
     'js/domains/crm.js',
     'js/domains/whatsapp-automation.js',
+    'js/domains/whatsapp-recurring.js',
     'js/domains/operations-integration.js',
   ];
 
@@ -63,7 +64,10 @@
     financeiro: () => root.PlennusFinanceAdvanced?.carregarFinanceiroAvancado(),
     estoque: () => root.PlennusInventory?.carregarEstoque(),
     crm: () => root.PlennusCRM?.carregarCRM(),
-    whatsapp: () => root.PlennusWhatsAppAutomation?.carregarWhatsApp(),
+    whatsapp: () => {
+      root.PlennusWhatsappRecurring?.syncAllRecurring();
+      root.PlennusWhatsAppAutomation?.carregarWhatsApp();
+    },
     caixa: () => carregarCaixa(),
     repasses: () => {
       carregarSelectsRepasse();
