@@ -58,6 +58,14 @@
 
     const userManageCard = document.getElementById('card-usuarios-gestao');
     if (userManageCard) userManageCard.style.display = nivel === 'admin' ? 'block' : 'none';
+
+    const canOpenCrm = root.PlennusAccessControl.canNavigateToPage(nivel, 'crm');
+    document.querySelectorAll('.dashboard-kpi-action').forEach(item => {
+      const action = item.getAttribute('onclick') || '';
+      if (action.includes("navegar('crm')")) item.style.display = canOpenCrm ? '' : 'none';
+    });
+    const returnsPanel = document.getElementById('dashboard-retornos')?.closest('.dashboard-panel');
+    if (returnsPanel) returnsPanel.style.display = canOpenCrm ? '' : 'none';
   }
 
   function fazerLogout() {
