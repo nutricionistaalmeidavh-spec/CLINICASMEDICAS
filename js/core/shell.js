@@ -2,17 +2,26 @@
   const PAGE_TITLES = {
     dashboard: 'Visão geral', agenda: 'Agenda & Sala de Espera', prontuario: 'Prontuário eletrônico',
     pacientes: 'Pacientes', profissionais: 'Profissionais', convenios: 'Convênios e procedimentos',
-    documentos: 'Documentos & PDF', caixa: 'Caixa', repasses: 'Repasses', configuracoes: 'Configurações',
-    importar: 'Importar pacientes', auditoria: 'Auditoria'
+    documentos: 'Documentos & PDF', financeiro: 'Financeiro', estoque: 'Estoque clínico',
+    crm: 'CRM de pacientes', whatsapp: 'WhatsApp operacional', caixa: 'Caixa', repasses: 'Repasses',
+    configuracoes: 'Configurações', importar: 'Importar pacientes', auditoria: 'Auditoria'
   };
 
   function ensureStylesheet() {
-    if (document.querySelector('link[data-plennus-platform]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'css/platform.css';
-    link.dataset.plennusPlatform = '1';
-    document.head.appendChild(link);
+    if (!document.querySelector('link[data-plennus-platform]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'css/platform.css';
+      link.dataset.plennusPlatform = '1';
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('link[data-plennus-operations]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'css/operations.css';
+      link.dataset.plennusOperations = '1';
+      document.head.appendChild(link);
+    }
   }
 
   function ensureShellTopbar() {
