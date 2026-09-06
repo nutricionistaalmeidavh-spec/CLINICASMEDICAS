@@ -66,6 +66,7 @@
         const afterId = latestAppointmentId();
         if (afterId > beforeId) {
           root.DB.run('UPDATE agenda SET procedimento_id=?,convenio_id=? WHERE id=?', [procedureId, insuranceId, afterId]);
+          root.PlennusOdontology?.onAppointmentCreated(afterId);
           const appointment = root.DB.query('SELECT status FROM agenda WHERE id=?', [afterId])[0];
           root.PlennusCRM?.onAppointmentStatusChanged(afterId, appointment?.status || 'agendado');
           root.PlennusWhatsAppAutomation?.syncAppointmentMessages(afterId);
@@ -78,6 +79,7 @@
       const originalChangeStatus = root.mudarStatus;
       root.mudarStatus = function integratedChangeStatus(id, status, ...rest) {
         const result = originalChangeStatus.call(this, id, status, ...rest);
+        root.PlennusOdontology?.onAppointmentStatusChanged(id, status);
         root.PlennusCRM?.onAppointmentStatusChanged(id, status);
         root.PlennusFinanceAdvanced?.onAppointmentStatusChanged(id, status);
         if (status === 'realizado') root.PlennusInventory?.consumeForAppointment(id);
