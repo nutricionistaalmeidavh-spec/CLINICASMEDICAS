@@ -93,19 +93,36 @@
     });
   }
 
+  function currentRole() {
+    return typeof currentUser !== 'undefined' ? currentUser?.nivel || null : null;
+  }
+
+  function canNavigate(page) {
+    const role = currentRole();
+    if (!role) return false;
+    if (!root.PlennusAccessControl?.canNavigateToPage) return true;
+    return root.PlennusAccessControl.canNavigateToPage(role, page);
+  }
+
   function navegar(page) {
+    if (!canNavigate(page)) {
+      console.warn(`Navegação bloqueada para a página ${page}.`);
+      return false;
+    }
+
     document.querySelectorAll('.menu-item').forEach(item => {
       item.classList.toggle('active', item.dataset.page === page);
     });
 
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const targetPage = document.getElementById('page-' + page);
-    if (!targetPage) return;
+    if (!targetPage) return false;
     targetPage.classList.add('active');
     root.PlennusShell?.setPageTitle(page);
 
     const loader = PAGE_LOADERS[page];
     if (loader) loader();
+    return true;
   }
 
   function setupTabs() {
@@ -123,7 +140,7 @@
     });
   }
 
-  root.PlennusNavigation = { CORE_SCRIPTS, DOMAIN_SCRIPTS, PAGE_LOADERS, loadDomainScripts, setupNavigation, navegar, setupTabs };
+  root.PlennusNavigation = { CORE_SCRIPTS, DOMAIN_SCRIPTS, PAGE_LOADERS, loadDomainScripts, setupNavigation, navegar, setupTabs, canNavigate };
   root.setupNavigation = setupNavigation;
   root.navegar = navegar;
   root.setupTabs = setupTabs;
