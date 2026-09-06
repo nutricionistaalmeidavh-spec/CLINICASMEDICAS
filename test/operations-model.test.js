@@ -52,5 +52,11 @@ test('WhatsApp templates and dedupe keys are stable by origin', () => {
   assert.match(confirmation, /Plennus Clinic/);
   assert.match(confirmation, /06\/09\/2026/);
   assert.equal(model.whatsappDedupeKey('lembrete', 'agenda', 42), 'lembrete:agenda:42');
+  assert.equal(model.whatsappScheduledDedupeKey('retorno', 'crm_paciente', 42, '2026-10-06'), 'retorno:crm_paciente:42:2026-10-06');
+  assert.notEqual(
+    model.whatsappScheduledDedupeKey('retorno', 'crm_paciente', 42, '2026-10-06'),
+    model.whatsappScheduledDedupeKey('retorno', 'crm_paciente', 42, '2026-11-06')
+  );
   assert.throws(() => model.whatsappDedupeKey('desconhecido', 'agenda', 42), /inválido/);
+  assert.throws(() => model.whatsappScheduledDedupeKey('retorno', 'crm_paciente', 42, ''), /obrigatória/);
 });
