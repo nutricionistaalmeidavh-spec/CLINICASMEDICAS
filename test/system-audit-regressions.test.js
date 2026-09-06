@@ -72,6 +72,18 @@ test('desktop hardening refuses unreadable database and manages clinical files i
   assert.match(source, /abrir-backup/);
   assert.match(source, /encryptPortableBackup/);
   assert.match(source, /decryptPortableBackup/);
+  assert.match(source, /stageManagedClinicalFiles/);
+  assert.match(source, /confirmar-restauracao-anexos/);
+});
+
+test('backup restore validates first, coordinates attachment commit and supports rollback', () => {
+  const coordinator = read('js/domains/backup-restore-coordinator.js');
+  const rollback = read('js/core/restore-rollback.js');
+  assert.match(coordinator, /DB\.validateBackup/);
+  assert.match(coordinator, /confirmarRestauracaoAnexos/);
+  assert.match(coordinator, /reverterRestauracaoAnexos/);
+  assert.match(rollback, /clinical-files-pre-restore-/);
+  assert.match(rollback, /rollbackClinicalFiles/);
 });
 
 test('portable backup format includes attachments while remaining backwards compatible', () => {
