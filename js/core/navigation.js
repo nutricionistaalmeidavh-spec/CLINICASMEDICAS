@@ -2,6 +2,7 @@
   const CORE_SCRIPTS = [
     'js/core/clinical-model.js',
     'js/core/operations-model.js',
+    'js/core/odontology-model.js',
     'js/core/migrations.js',
     'js/core/audit.js',
     'js/core/import-model.js',
@@ -28,6 +29,8 @@
     'js/domains/imports.js',
     'js/domains/audit-view.js',
     'js/domains/platform-documents.js',
+    'js/domains/odontology.js',
+    'js/domains/dental-finance.js',
     'js/domains/finance-advanced.js',
     'js/domains/inventory.js',
     'js/domains/crm.js',
@@ -61,6 +64,7 @@
       carregarSelectsDocs();
       carregarTemplate();
     },
+    odontologia: () => root.PlennusOdontology?.carregarOdontologia(),
     financeiro: () => root.PlennusFinanceAdvanced?.carregarFinanceiroAvancado(),
     estoque: () => root.PlennusInventory?.carregarEstoque(),
     crm: () => root.PlennusCRM?.carregarCRM(),

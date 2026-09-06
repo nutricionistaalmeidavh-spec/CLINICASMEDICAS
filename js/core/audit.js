@@ -9,7 +9,9 @@
     'consentimentos', 'arquivos_clinicos', 'pendencias_clinicas', 'documentos_emitidos', 'import_history',
     'financeiro_categorias', 'financeiro_lancamentos', 'financeiro_caixa_links', 'financeiro_repasse_links',
     'estoque_itens', 'estoque_movimentos', 'procedimento_estoque',
-    'crm_pacientes', 'crm_interacoes', 'crm_oportunidades', 'mensagens_whatsapp'
+    'crm_pacientes', 'crm_interacoes', 'crm_oportunidades', 'mensagens_whatsapp',
+    'odontogramas', 'odontograma_condicoes', 'planos_tratamento', 'plano_tratamento_itens',
+    'orcamentos_odontologicos', 'orcamento_odontologico_itens'
   ]);
   let dbAuditInstalled = false;
 

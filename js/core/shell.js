@@ -2,7 +2,7 @@
   const PAGE_TITLES = {
     dashboard: 'Visão geral', agenda: 'Agenda & Sala de Espera', prontuario: 'Prontuário eletrônico',
     pacientes: 'Pacientes', profissionais: 'Profissionais', convenios: 'Convênios e procedimentos',
-    documentos: 'Documentos & PDF', financeiro: 'Financeiro', estoque: 'Estoque clínico',
+    documentos: 'Documentos & PDF', odontologia: 'Odontologia', financeiro: 'Financeiro', estoque: 'Estoque clínico',
     crm: 'CRM de pacientes', whatsapp: 'WhatsApp operacional', caixa: 'Caixa', repasses: 'Repasses',
     configuracoes: 'Configurações', importar: 'Importar pacientes', auditoria: 'Auditoria'
   };
@@ -20,6 +20,13 @@
       link.rel = 'stylesheet';
       link.href = 'css/operations.css';
       link.dataset.plennusOperations = '1';
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('link[data-plennus-odontology]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'css/odontology.css';
+      link.dataset.plennusOdontology = '1';
       document.head.appendChild(link);
     }
   }

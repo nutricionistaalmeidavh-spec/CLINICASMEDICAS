@@ -23,6 +23,8 @@ const DOMAIN_PATHS = [
   'js/domains/imports.js',
   'js/domains/audit-view.js',
   'js/domains/platform-documents.js',
+  'js/domains/odontology.js',
+  'js/domains/dental-finance.js',
   'js/domains/finance-advanced.js',
   'js/domains/inventory.js',
   'js/domains/crm.js',
@@ -42,6 +44,7 @@ const STATIC_CORE_PATHS = [
 const DYNAMIC_CORE_PATHS = [
   'js/core/clinical-model.js',
   'js/core/operations-model.js',
+  'js/core/odontology-model.js',
   'js/core/migrations.js',
   'js/core/audit.js',
   'js/core/import-model.js',
@@ -105,6 +108,18 @@ test('Block A loaders are exposed without moving orchestration back to app.js', 
   const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   assert.equal(app.includes('function carregarEstoque'), false);
   assert.equal(app.includes('function registrarOportunidade'), false);
+});
+
+test('Block B odontology stays modular and integrates through stable seams', () => {
+  const navigation = fs.readFileSync(path.join(root, 'js/core/navigation.js'), 'utf8');
+  const operations = fs.readFileSync(path.join(root, 'js/domains/operations-integration.js'), 'utf8');
+  const dental = fs.readFileSync(path.join(root, 'js/domains/odontology.js'), 'utf8');
+  assert.ok(navigation.includes('odontologia:'), 'odontology page loader must be registered');
+  assert.match(operations, /PlennusOdontology\?\.onAppointmentCreated/);
+  assert.match(operations, /PlennusDentalFinance\?\.onAppointmentStatusChanged/);
+  assert.match(dental, /resolveAppointmentCharge/);
+  const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+  assert.equal(app.includes('odontograma'), false, 'odontology rules must not move back into app.js');
 });
 
 test('app.js remains only renderer bootstrap and orchestration', () => {
