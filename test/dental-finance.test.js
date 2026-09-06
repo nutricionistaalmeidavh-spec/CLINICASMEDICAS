@@ -11,6 +11,7 @@ function rowsFromExec(result) {
 async function setup() {
   const SQL = await initSqlJs();
   const db = new SQL.Database();
+  db.run('CREATE TABLE pacientes (id INTEGER PRIMARY KEY, nome TEXT)');
   db.run('CREATE TABLE agenda (id INTEGER PRIMARY KEY, paciente_id INTEGER, profissional_id INTEGER, procedimento_id INTEGER, data TEXT)');
   db.run('CREATE TABLE plano_tratamento_itens (id INTEGER PRIMARY KEY, agenda_id INTEGER)');
   db.run('CREATE TABLE financeiro_categorias (id INTEGER PRIMARY KEY, nome TEXT, tipo TEXT)');
@@ -19,6 +20,7 @@ async function setup() {
     profissional_id INTEGER, agenda_id INTEGER, procedimento_id INTEGER, chave_origem TEXT UNIQUE, valor REAL,
     vencimento_em TEXT, competencia TEXT, status TEXT, atualizado_em TEXT
   )`);
+  db.run("INSERT INTO pacientes (id,nome) VALUES (2,'Paciente teste')");
   db.run("INSERT INTO agenda (id,paciente_id,profissional_id,procedimento_id,data) VALUES (7,2,3,4,'06/09/2026')");
   db.run('INSERT INTO plano_tratamento_itens (id,agenda_id) VALUES (11,7)');
   db.run("INSERT INTO financeiro_categorias (id,nome,tipo) VALUES (1,'Procedimentos','receita')");
