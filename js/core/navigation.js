@@ -40,6 +40,7 @@
     'js/domains/operations-integration.js',
     'js/domains/workflow-stabilization.js',
     'js/domains/workflow-completion.js',
+    'js/domains/backup-restore-coordinator.js',
   ];
 
   function loadDomainScripts() {
