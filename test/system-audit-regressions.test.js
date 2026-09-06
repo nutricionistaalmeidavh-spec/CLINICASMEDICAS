@@ -53,7 +53,7 @@ test('renderer stabilization preserves PEP draft, prevents duplicate saves and l
 
 test('desktop hardening refuses unreadable database and manages clinical files inside app data', () => {
   const source = read('js/core/desktop-data-hardening.js');
-  assert.match(source, /removeHandler\('carregar-banco'\)/);
+  assert.match(source, /replaceHandler\('carregar-banco'/);
   assert.match(source, /throw new Error/);
   assert.match(source, /clinical-files/);
   assert.match(source, /copyFileSync/);
