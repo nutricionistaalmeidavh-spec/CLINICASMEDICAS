@@ -23,6 +23,12 @@ const DOMAIN_PATHS = [
   'js/domains/imports.js',
   'js/domains/audit-view.js',
   'js/domains/platform-documents.js',
+  'js/domains/finance-advanced.js',
+  'js/domains/inventory.js',
+  'js/domains/crm.js',
+  'js/domains/whatsapp-automation.js',
+  'js/domains/whatsapp-recurring.js',
+  'js/domains/operations-integration.js',
 ];
 
 const STATIC_CORE_PATHS = [
@@ -35,6 +41,7 @@ const STATIC_CORE_PATHS = [
 
 const DYNAMIC_CORE_PATHS = [
   'js/core/clinical-model.js',
+  'js/core/operations-model.js',
   'js/core/migrations.js',
   'js/core/audit.js',
   'js/core/import-model.js',
@@ -88,6 +95,16 @@ test('navigation loads all dynamic cores before domain scripts synchronously whi
   delete global.setupTabs;
   if (previousDocument === undefined) delete global.document;
   else global.document = previousDocument;
+});
+
+test('Block A loaders are exposed without moving orchestration back to app.js', () => {
+  const source = fs.readFileSync(path.join(root, 'js/core/navigation.js'), 'utf8');
+  for (const page of ['financeiro', 'estoque', 'crm', 'whatsapp']) {
+    assert.ok(source.includes(`${page}:`), `${page} page loader must be registered`);
+  }
+  const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+  assert.equal(app.includes('function carregarEstoque'), false);
+  assert.equal(app.includes('function registrarOportunidade'), false);
 });
 
 test('app.js remains only renderer bootstrap and orchestration', () => {
