@@ -13,5 +13,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   abrirArquivoClinico: (filePath) => ipcRenderer.invoke('abrir-arquivo-clinico', filePath),
   lerImagemClinicaParaDocumento: (filePath) => ipcRenderer.invoke('ler-imagem-clinica-para-documento', filePath),
   carregarBanco: () => ipcRenderer.invoke('carregar-banco'),
-  salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data)
+  salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data),
+  updater: {
+    state: () => ipcRenderer.invoke('updater:state'),
+    check: () => ipcRenderer.invoke('updater:check'),
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onStateChanged: (listener) => {
+      if (typeof listener !== 'function') return () => {};
+      const handler = (_event, state) => listener(state);
+      ipcRenderer.on('updater:state-changed', handler);
+      return () => ipcRenderer.removeListener('updater:state-changed', handler);
+    }
+  }
 });

@@ -1,3 +1,160 @@
+let updaterUnsubscribe = null;
+let updaterLastState = null;
+
+function updaterApi() {
+  return window.electronAPI?.updater || null;
+}
+
+function garantirCardAtualizacoes() {
+  const page = document.getElementById('page-configuracoes');
+  if (!page || document.getElementById('desktop-updater-settings')) return;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'desktop-updater-settings';
+  card.innerHTML = `
+    <div class="card-title">Atualizações do aplicativo</div>
+    <p id="updater-status-text" class="text-muted">Verificando suporte a atualizações...</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0;">
+      <span><strong>Versão instalada:</strong> <span id="updater-current-version">-</span></span>
+      <span id="updater-available-version" style="display:none;"><strong>Disponível:</strong> <span></span></span>
+    </div>
+    <progress id="updater-progress" max="100" value="0" style="display:none;width:100%;margin:8px 0 12px;"></progress>
+    <div class="form-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" id="updater-check-btn" type="button">Verificar atualização</button>
+      <button class="btn btn-primary btn-sm" id="updater-download-btn" type="button" style="display:none;">Baixar atualização</button>
+      <button class="btn btn-primary btn-sm" id="updater-install-btn" type="button" style="display:none;">Reiniciar e instalar</button>
+    </div>`;
+  page.appendChild(card);
+
+  document.getElementById('updater-check-btn')?.addEventListener('click', verificarAtualizacaoDesktop);
+  document.getElementById('updater-download-btn')?.addEventListener('click', baixarAtualizacaoDesktop);
+  document.getElementById('updater-install-btn')?.addEventListener('click', instalarAtualizacaoDesktop);
+}
+
+function textoEstadoAtualizador(state) {
+  if (!state) return 'Atualizador indisponível.';
+  if (state.status === 'checking') return 'Verificando nova versão...';
+  if (state.status === 'current') return 'Você está usando a versão mais recente.';
+  if (state.status === 'available') return `Versão ${state.availableVersion || ''} disponível para download.`;
+  if (state.status === 'downloading') return `Baixando atualização${state.progress != null ? ` — ${state.progress}%` : '...'}`;
+  if (state.status === 'downloaded') return `Versão ${state.availableVersion || ''} pronta para instalar.`;
+  if (state.status === 'error') return state.error || 'Não foi possível verificar atualizações.';
+  if (state.status === 'unsupported') return 'Atualização automática disponível apenas no aplicativo Windows instalado.';
+  return 'O aplicativo verifica novas versões automaticamente ao iniciar.';
+}
+
+function renderAtualizador(state) {
+  updaterLastState = state || null;
+  garantirCardAtualizacoes();
+
+  const status = document.getElementById('updater-status-text');
+  const current = document.getElementById('updater-current-version');
+  const availableWrap = document.getElementById('updater-available-version');
+  const available = availableWrap?.querySelector('span');
+  const progress = document.getElementById('updater-progress');
+  const check = document.getElementById('updater-check-btn');
+  const download = document.getElementById('updater-download-btn');
+  const install = document.getElementById('updater-install-btn');
+
+  if (status) status.textContent = textoEstadoAtualizador(state);
+  if (current) current.textContent = state?.currentVersion || '-';
+  if (availableWrap) availableWrap.style.display = state?.availableVersion ? '' : 'none';
+  if (available) available.textContent = state?.availableVersion || '';
+  if (progress) {
+    const downloading = state?.status === 'downloading';
+    progress.style.display = downloading ? '' : 'none';
+    progress.value = Number(state?.progress || 0);
+  }
+  if (check) check.disabled = !state?.supported || ['checking', 'downloading'].includes(state?.status);
+  if (download) download.style.display = state?.status === 'available' ? '' : 'none';
+  if (install) install.style.display = state?.status === 'downloaded' ? '' : 'none';
+
+  atualizarAvisoAtualizacao(state);
+}
+
+function atualizarAvisoAtualizacao(state) {
+  let toast = document.getElementById('desktop-updater-toast');
+  if (!['available', 'downloaded'].includes(state?.status)) {
+    toast?.remove();
+    return;
+  }
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'desktop-updater-toast';
+    toast.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:9999;max-width:360px;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:14px;';
+    const text = document.createElement('div');
+    text.id = 'desktop-updater-toast-text';
+    text.style.marginBottom = '10px';
+    const button = document.createElement('button');
+    button.className = 'btn btn-primary btn-sm';
+    button.type = 'button';
+    button.textContent = 'Ver atualização';
+    button.addEventListener('click', () => {
+      const menu = document.querySelector('.menu-item[data-page="configuracoes"]');
+      menu?.click();
+      document.getElementById('desktop-updater-settings')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    toast.append(text, button);
+    document.body.appendChild(toast);
+  }
+  const text = document.getElementById('desktop-updater-toast-text');
+  if (text) text.textContent = state.status === 'downloaded'
+    ? `Atualização ${state.availableVersion || ''} pronta para instalar.`
+    : `Nova versão ${state.availableVersion || ''} disponível.`;
+}
+
+async function executarAcaoAtualizador(action) {
+  const api = updaterApi();
+  if (!api?.[action]) return alert('Atualização automática indisponível neste ambiente.');
+  try {
+    const state = await api[action]();
+    if (state && typeof state === 'object') renderAtualizador(state);
+  } catch (error) {
+    alert(error?.message || 'Não foi possível concluir a operação de atualização.');
+  }
+}
+
+function verificarAtualizacaoDesktop() {
+  return executarAcaoAtualizador('check');
+}
+
+function baixarAtualizacaoDesktop() {
+  return executarAcaoAtualizador('download');
+}
+
+async function instalarAtualizacaoDesktop() {
+  if (!confirm('O Plennus Clinic será reiniciado para instalar a atualização. Continuar?')) return;
+  return executarAcaoAtualizador('install');
+}
+
+async function inicializarAtualizadorConfig() {
+  garantirCardAtualizacoes();
+  const api = updaterApi();
+  if (!api) {
+    renderAtualizador({ status: 'unsupported', currentVersion: '-', supported: false, availableVersion: null, progress: null });
+    return;
+  }
+  if (!updaterUnsubscribe && typeof api.onStateChanged === 'function') {
+    updaterUnsubscribe = api.onStateChanged(renderAtualizador);
+  }
+  try {
+    renderAtualizador(await api.state());
+  } catch (error) {
+    renderAtualizador({ status: 'error', currentVersion: '-', supported: false, availableVersion: null, progress: null, error: error?.message });
+  }
+}
+
+function iniciarMonitorAtualizacoesDesktop() {
+  const api = updaterApi();
+  if (!api || updaterUnsubscribe) return;
+  updaterUnsubscribe = api.onStateChanged?.(renderAtualizador) || null;
+  api.state?.().then(renderAtualizador).catch(() => {});
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarMonitorAtualizacoesDesktop, { once: true });
+else iniciarMonitorAtualizacoesDesktop();
+
 function settingsRole() {
   return typeof currentUser !== 'undefined' ? currentUser?.nivel || null : null;
 }
@@ -15,6 +172,7 @@ function requireSettingsCapability(name, message) {
 }
 
 function aplicarPermissoesConfiguracoes() {
+  garantirCardAtualizacoes();
   const canAdminister = settingsCapability('canManageClinicSettings');
   const clinicSave = document.querySelector('#page-configuracoes [onclick="salvarConfig()"]');
   const clinicCard = clinicSave?.closest('.card');
@@ -30,6 +188,7 @@ function aplicarPermissoesConfiguracoes() {
 
 function carregarConfig() {
   aplicarPermissoesConfiguracoes();
+  inicializarAtualizadorConfig();
   if (!settingsCapability('canManageClinicSettings')) return;
   const rows = DB.query('SELECT * FROM configuracoes');
   const map = {};

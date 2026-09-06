@@ -2,11 +2,11 @@
   "name": "plennus-clinic",
   "version": "1.0.0",
   "description": "Sistema de Gestão de Clínicas e Consultórios - Plennus Clinic",
-  "main": "main.js",
+  "main": "updater-main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "lint": "node --check main.js && node --check preload.js && node --check js/database.js && node --check js/app.js && node --check js/validations.js && node --check js/core/utils.js && node --check js/core/access-control.js && node --check js/core/clinic.js && node --check js/core/auth.js && node --check js/core/clinical-model.js && node --check js/core/operations-model.js && node --check js/core/odontology-model.js && node --check js/core/backup-format.js && node --check js/core/migrations.js && node --check js/core/audit.js && node --check js/core/import-model.js && node --check js/core/document-renderer.js && node --check js/core/shell.js && node --check js/core/global-search.js && node --check js/core/xlsx-node.js && node --check js/core/navigation.js && node --check js/domains/dashboard.js && node --check js/domains/patients.js && node --check js/domains/professionals.js && node --check js/domains/agenda.js && node --check js/domains/pep.js && node --check js/domains/documents.js && node --check js/domains/finance.js && node --check js/domains/settings.js && node --check js/domains/patient-workspace.js && node --check js/domains/clinical-files.js && node --check js/domains/consents.js && node --check js/domains/labs.js && node --check js/domains/clinical-timeline.js && node --check js/domains/clinical-pending.js && node --check js/domains/imports.js && node --check js/domains/audit-view.js && node --check js/domains/platform-documents.js && node --check js/domains/odontology.js && node --check js/domains/dental-finance.js && node --check js/domains/finance-advanced.js && node --check js/domains/inventory.js && node --check js/domains/crm.js && node --check js/domains/whatsapp-automation.js && node --check js/domains/whatsapp-recurring.js && node --check js/domains/operations-integration.js",
+    "lint": "node --check main.js && node --check updater-main.js && node --check preload.js && node --check js/database.js && node --check js/app.js && node --check js/validations.js && node --check js/core/utils.js && node --check js/core/access-control.js && node --check js/core/clinic.js && node --check js/core/auth.js && node --check js/core/clinical-model.js && node --check js/core/operations-model.js && node --check js/core/odontology-model.js && node --check js/core/backup-format.js && node --check js/core/updater-service.js && node --check js/core/migrations.js && node --check js/core/audit.js && node --check js/core/import-model.js && node --check js/core/document-renderer.js && node --check js/core/shell.js && node --check js/core/global-search.js && node --check js/core/xlsx-node.js && node --check js/core/navigation.js && node --check js/domains/dashboard.js && node --check js/domains/patients.js && node --check js/domains/professionals.js && node --check js/domains/agenda.js && node --check js/domains/pep.js && node --check js/domains/documents.js && node --check js/domains/finance.js && node --check js/domains/settings.js && node --check js/domains/patient-workspace.js && node --check js/domains/clinical-files.js && node --check js/domains/consents.js && node --check js/domains/labs.js && node --check js/domains/clinical-timeline.js && node --check js/domains/clinical-pending.js && node --check js/domains/imports.js && node --check js/domains/audit-view.js && node --check js/domains/platform-documents.js && node --check js/domains/odontology.js && node --check js/domains/dental-finance.js && node --check js/domains/finance-advanced.js && node --check js/domains/inventory.js && node --check js/domains/crm.js && node --check js/domains/whatsapp-automation.js && node --check js/domains/whatsapp-recurring.js && node --check js/domains/operations-integration.js",
     "build": "electron-builder --win --publish never",
     "build:dir": "electron-builder --win --dir --publish never"
   },
@@ -17,13 +17,22 @@
     "electron-builder": "26.15.3"
   },
   "dependencies": {
+    "electron-updater": "^6.6.2",
     "sql.js": "^1.10.3"
   },
   "build": {
     "appId": "com.plennus.clinic",
     "productName": "Plennus Clinic",
-    "artifactName": "${productName} Setup ${version} ${arch}.${ext}",
+    "artifactName": "Plennus-Clinic-Setup-${version}.${ext}",
     "directories": { "output": "dist" },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nutricionistaalmeidavh-spec",
+        "repo": "CLINICASMEDICAS",
+        "releaseType": "release"
+      }
+    ],
     "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "assets/icon.ico" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true }
   }
