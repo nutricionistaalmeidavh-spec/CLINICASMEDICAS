@@ -53,7 +53,7 @@ const DYNAMIC_CORE_PATHS = [
   'js/core/global-search.js',
 ];
 
-const NODE_ONLY_PATHS = ['js/core/xlsx-node.js'];
+const NODE_ONLY_PATHS = ['js/core/xlsx-node.js', 'js/core/backup-format.js'];
 
 test('renderer keeps bootstrap before static core compatibility modules', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -120,6 +120,18 @@ test('Block B odontology stays modular and integrates through stable seams', () 
   assert.match(dental, /resolveAppointmentCharge/);
   const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   assert.equal(app.includes('odontograma'), false, 'odontology rules must not move back into app.js');
+});
+
+test('Block C and stabilization stay outside the renderer bootstrap', () => {
+  const dashboard = fs.readFileSync(path.join(root, 'js/domains/dashboard.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(root, 'js/domains/settings.js'), 'utf8');
+  const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');
+  assert.match(dashboard, /buildExecutiveMetrics/);
+  assert.match(settings, /restoreValidated/);
+  assert.match(main, /backup-format/);
+  const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+  assert.equal(app.includes('buildExecutiveMetrics'), false);
+  assert.equal(app.includes('salvar-backup'), false);
 });
 
 test('app.js remains only renderer bootstrap and orchestration', () => {
