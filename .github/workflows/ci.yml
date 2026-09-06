@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency audit report
+        run: npm audit --json || true
+
       - name: Syntax validation
         run: npm run lint
 
