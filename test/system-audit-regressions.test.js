@@ -51,6 +51,17 @@ test('renderer stabilization preserves PEP draft, prevents duplicate saves and l
   assert.match(source, /ROLLBACK/);
 });
 
+test('workflow completion links PEP buttons, disambiguates secondary patient selects and protects initial stock', () => {
+  const source = read('js/domains/workflow-completion.js');
+  assert.match(source, /doc-paciente/);
+  assert.match(source, /od-paciente/);
+  assert.match(source, /patchAgendaPepLinks/);
+  assert.match(source, /abrirProntuarioDaAgenda/);
+  assert.match(source, /est-item-salvar/);
+  assert.match(source, /stability\.transact/);
+  assert.match(source, /sobrepõe a outra grade/);
+});
+
 test('desktop hardening refuses unreadable database and manages clinical files inside app data', () => {
   const source = read('js/core/desktop-data-hardening.js');
   assert.match(source, /replaceHandler\('carregar-banco'/);
