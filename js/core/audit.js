@@ -6,7 +6,10 @@
   const SECRET_KEY_PATTERN = /(senha|password|hash|base64|binario|binary|token|secret)/i;
   const AUDITED_TABLES = new Set([
     'pacientes', 'prontuario_atendimentos', 'exames_laboratoriais', 'exames_resultados',
-    'consentimentos', 'arquivos_clinicos', 'pendencias_clinicas', 'documentos_emitidos', 'import_history'
+    'consentimentos', 'arquivos_clinicos', 'pendencias_clinicas', 'documentos_emitidos', 'import_history',
+    'financeiro_categorias', 'financeiro_lancamentos', 'financeiro_caixa_links', 'financeiro_repasse_links',
+    'estoque_itens', 'estoque_movimentos', 'procedimento_estoque',
+    'crm_pacientes', 'crm_interacoes', 'crm_oportunidades', 'mensagens_whatsapp'
   ]);
   let dbAuditInstalled = false;
 
@@ -66,7 +69,7 @@
 
   function parseWrite(sql, params) {
     const text = String(sql || '').trim();
-    let match = text.match(/^INSERT\s+INTO\s+([a-z_]+)/i);
+    let match = text.match(/^INSERT\s+(?:OR\s+\w+\s+)?INTO\s+([a-z_]+)/i);
     if (match) return { action: 'criar', table: match[1].toLowerCase(), entityId: null, fields: null };
     match = text.match(/^UPDATE\s+([a-z_]+)\s+SET\s+([\s\S]+?)\s+WHERE\s+/i);
     if (match) {
