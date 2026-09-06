@@ -16,6 +16,18 @@ on:
       - 'css/**'
       - 'assets/**'
       - '.github/workflows/desktop-release.yml'
+  pull_request:
+    paths:
+      - 'main.js'
+      - 'updater-main.js'
+      - 'preload.js'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'js/**'
+      - 'css/**'
+      - 'assets/**'
+      - '.github/workflows/desktop-release.yml'
 
 permissions:
   contents: write
