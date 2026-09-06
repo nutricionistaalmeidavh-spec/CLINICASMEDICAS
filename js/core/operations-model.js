@@ -144,6 +144,13 @@
     return `${type}:${originType}:${originId}`;
   }
 
+  function whatsappScheduledDedupeKey(type, originType, originId, scheduleKey) {
+    const base = whatsappDedupeKey(type, originType, originId);
+    const schedule = String(scheduleKey || '').trim();
+    if (!schedule) throw new Error('Agenda da mensagem recorrente é obrigatória.');
+    return `${base}:${schedule}`;
+  }
+
   return {
     PAYMENT_METHODS,
     CRM_STAGES,
@@ -163,6 +170,7 @@
     classifyFinancialStatus,
     isPatientInactive,
     buildWhatsappMessage,
-    whatsappDedupeKey
+    whatsappDedupeKey,
+    whatsappScheduledDedupeKey
   };
 });
