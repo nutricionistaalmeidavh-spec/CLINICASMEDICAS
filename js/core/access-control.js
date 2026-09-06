@@ -23,6 +23,22 @@
     return ROLE_META[role] || { label: role || 'Administrador', className: 'badge-admin' };
   }
 
+  function canAccessPatientClinicalWorkspace(role) {
+    return role === 'admin' || role === 'medico';
+  }
+
+  function canImportPatients(role) {
+    return role === 'admin';
+  }
+
+  function canViewAudit(role) {
+    return role === 'admin';
+  }
+
+  function canViewFinancialDashboard(role) {
+    return role === 'admin' || role === 'recepcao';
+  }
+
   const api = {
     DEFAULT_ROLES,
     ROLE_META,
@@ -30,6 +46,10 @@
     canViewMenuItem,
     getLandingPage,
     getRoleMeta,
+    canAccessPatientClinicalWorkspace,
+    canImportPatients,
+    canViewAudit,
+    canViewFinancialDashboard,
   };
 
   root.PlennusAccessControl = api;

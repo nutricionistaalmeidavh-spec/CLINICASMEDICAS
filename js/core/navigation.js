@@ -1,6 +1,12 @@
 (function (root) {
   const CORE_SCRIPTS = [
     'js/core/clinical-model.js',
+    'js/core/migrations.js',
+    'js/core/audit.js',
+    'js/core/import-model.js',
+    'js/core/document-renderer.js',
+    'js/core/shell.js',
+    'js/core/global-search.js',
   ];
 
   const DOMAIN_SCRIPTS = [
@@ -18,11 +24,11 @@
     'js/domains/labs.js',
     'js/domains/clinical-timeline.js',
     'js/domains/clinical-pending.js',
+    'js/domains/imports.js',
+    'js/domains/audit-view.js',
+    'js/domains/platform-documents.js',
   ];
 
-  // Transitional compatibility loader: navigation.js is already referenced by index.html.
-  // While the document parser is active, document.write loads core/domain modules synchronously,
-  // so all global handlers exist before DOMContentLoaded executes the bootstrap.
   function loadDomainScripts() {
     if (typeof document === 'undefined' || document.readyState !== 'loading') return;
     const scripts = [...CORE_SCRIPTS, ...DOMAIN_SCRIPTS];
@@ -57,10 +63,14 @@
       carregarConfig();
       carregarUsuariosConfig();
     },
+    importar: () => carregarImportacao(),
+    auditoria: () => carregarAuditoria(),
   };
 
   function setupNavigation() {
     document.querySelectorAll('.menu-item').forEach(item => {
+      if (item.dataset.navigationBound === '1') return;
+      item.dataset.navigationBound = '1';
       item.addEventListener('click', () => navegar(item.dataset.page));
     });
   }
@@ -74,6 +84,7 @@
     const targetPage = document.getElementById('page-' + page);
     if (!targetPage) return;
     targetPage.classList.add('active');
+    root.PlennusShell?.setPageTitle(page);
 
     const loader = PAGE_LOADERS[page];
     if (loader) loader();

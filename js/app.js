@@ -9,8 +9,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await DB.init();
     if (!DB.isReady()) throw new Error('Banco não ficou pronto');
+    await window.PlennusMigrations?.ensurePlatformSchema(DB, window.electronAPI, window.PlennusAudit);
+    window.PlennusAudit?.installDbAudit(DB);
+    window.PlennusShell?.setupShell();
+    window.PlennusImports?.ensureImportUi();
+    window.PlennusAuditView?.ensureAuditUi();
     setupNavigation();
     setupTabs();
+    window.PlennusGlobalSearch?.setupGlobalSearch();
     if (window.__initialPassword) {
       alert(`Primeiro acesso criado. Usuário: admin\nSenha temporária: ${window.__initialPassword}\nGuarde-a em local seguro.`);
     }
