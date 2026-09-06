@@ -29,12 +29,8 @@
     return states[type] || 'Nenhum registro disponível';
   }
 
-  function ensureDashboardUi() {
-    if (typeof document === 'undefined') return;
-    const page = document.getElementById('page-dashboard');
-    if (!page || page.dataset.platformDashboard === '1') return;
-    page.dataset.platformDashboard = '1';
-    page.innerHTML = `
+  function dashboardLayoutMarkup() {
+    return `
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px">
         <div><h1 class="page-title" style="margin-bottom:4px">Visão geral</h1><p class="text-muted">Operação clínica de hoje e itens que precisam de atenção.</p></div>
         <button class="btn btn-primary btn-sm" style="width:auto" onclick="navegar('agenda')">Abrir agenda</button>
@@ -52,6 +48,14 @@
         <section class="dashboard-panel"><h3>Sala de espera</h3><div id="dashboard-espera"></div></section>
         <section class="dashboard-panel"><h3>Revisão clínica</h3><div id="dashboard-clinico"></div></section>
       </div>`;
+  }
+
+  function ensureDashboardUi() {
+    if (typeof document === 'undefined') return;
+    const page = document.getElementById('page-dashboard');
+    if (!page || page.dataset.platformDashboard === '1') return;
+    page.dataset.platformDashboard = '1';
+    page.innerHTML = dashboardLayoutMarkup();
   }
 
   function safeCount(sql, params = []) {
@@ -116,5 +120,5 @@
       <button class="dashboard-list-item" type="button" onclick="navegar('prontuario')"><span class="dashboard-list-dot"></span><span><strong>${esc(row.paciente || 'Paciente')}</strong><small>Exame aguardando revisão</small></span></button>`);
   }
 
-  return { buildDashboardMetrics, emptyState, ensureDashboardUi, carregarDashboard };
+  return { buildDashboardMetrics, emptyState, dashboardLayoutMarkup, ensureDashboardUi, carregarDashboard };
 });
