@@ -1,0 +1,80 @@
+name: Runtime Security
+
+on:
+  push:
+    branches:
+      - chore/runtime-security-upgrade
+    paths:
+      - package.json
+      - package-lock.json
+      - main.js
+      - preload.js
+      - test/runtime-security.test.js
+      - .github/workflows/runtime-security.yml
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - main.js
+      - preload.js
+      - test/runtime-security.test.js
+      - .github/workflows/runtime-security.yml
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit
+        run: npm audit --audit-level=moderate
+
+      - name: Syntax validation
+        run: npm run lint
+
+      - name: Automated tests
+        run: npm test
+
+  windows-x64-build:
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify x64 configuration
+        shell: pwsh
+        run: |
+          node -e "const p=require('./package.json'); if (JSON.stringify(p.build.win.target)!==JSON.stringify([{target:'nsis',arch:['x64']}])) process.exit(1)"
+
+      - name: Build Windows x64 installer
+        run: npm run build
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: plennus-clinic-windows-x64
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
