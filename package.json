@@ -7,15 +7,14 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "lint": "node --check main.js && node --check preload.js && node --check js/database.js && node --check js/app.js && node --check js/validations.js && node --check js/core/utils.js && node --check js/core/access-control.js && node --check js/core/clinic.js && node --check js/core/auth.js && node --check js/core/clinical-model.js && node --check js/core/migrations.js && node --check js/core/audit.js && node --check js/core/import-model.js && node --check js/core/document-renderer.js && node --check js/core/shell.js && node --check js/core/global-search.js && node --check js/core/xlsx-node.js && node --check js/core/navigation.js && node --check js/domains/dashboard.js && node --check js/domains/patients.js && node --check js/domains/professionals.js && node --check js/domains/agenda.js && node --check js/domains/pep.js && node --check js/domains/documents.js && node --check js/domains/finance.js && node --check js/domains/settings.js && node --check js/domains/patient-workspace.js && node --check js/domains/clinical-files.js && node --check js/domains/consents.js && node --check js/domains/labs.js && node --check js/domains/clinical-timeline.js && node --check js/domains/clinical-pending.js && node --check js/domains/imports.js && node --check js/domains/audit-view.js && node --check js/domains/platform-documents.js",
-    "build": "electron-builder --win",
-    "build:win32": "electron-builder --win nsis --ia32",
-    "build:dir": "electron-builder --win --dir"
+    "build": "electron-builder --win --publish never",
+    "build:dir": "electron-builder --win --dir --publish never"
   },
   "author": "Plennus",
   "license": "MIT",
   "devDependencies": {
-    "electron": "22.3.27",
-    "electron-builder": "^24.9.1"
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3"
   },
   "dependencies": {
     "sql.js": "^1.10.3"
@@ -25,7 +24,7 @@
     "productName": "Plennus Clinic",
     "artifactName": "${productName} Setup ${version} ${arch}.${ext}",
     "directories": { "output": "dist" },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64", "ia32"] }], "icon": "assets/icon.ico" },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "assets/icon.ico" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true }
   }
 }
