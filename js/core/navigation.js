@@ -39,6 +39,7 @@
     'js/domains/whatsapp-recurring.js',
     'js/domains/operations-integration.js',
     'js/domains/workflow-stabilization.js',
+    'js/domains/workflow-completion.js',
   ];
 
   function loadDomainScripts() {
