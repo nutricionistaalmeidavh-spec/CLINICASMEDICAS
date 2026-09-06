@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   salvarBackup: (data, password) => ipcRenderer.invoke('salvar-backup', data, password),
   abrirBackup: (password) => ipcRenderer.invoke('abrir-backup', password),
+  confirmarRestauracaoAnexos: (sessionId) => ipcRenderer.invoke('confirmar-restauracao-anexos', sessionId),
+  cancelarRestauracaoAnexos: (sessionId) => ipcRenderer.invoke('cancelar-restauracao-anexos', sessionId),
   criarBackupPreMigracao: (meta) => ipcRenderer.invoke('criar-backup-pre-migracao', meta),
   selecionarArquivoImportacao: () => ipcRenderer.invoke('selecionar-arquivo-importacao'),
   salvarDocumento: (conteudo, nome) => ipcRenderer.invoke('salvar-documento', conteudo, nome),
