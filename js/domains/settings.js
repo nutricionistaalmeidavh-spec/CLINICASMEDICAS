@@ -1,4 +1,36 @@
+function settingsRole() {
+  return typeof currentUser !== 'undefined' ? currentUser?.nivel || null : null;
+}
+
+function settingsCapability(name) {
+  const access = window.PlennusAccessControl;
+  const role = settingsRole();
+  return typeof access?.[name] === 'function' ? access[name](role) : role === 'admin';
+}
+
+function requireSettingsCapability(name, message) {
+  if (settingsCapability(name)) return true;
+  alert(message || 'Você não possui permissão para esta ação.');
+  return false;
+}
+
+function aplicarPermissoesConfiguracoes() {
+  const canAdminister = settingsCapability('canManageClinicSettings');
+  const clinicSave = document.querySelector('#page-configuracoes [onclick="salvarConfig()"]');
+  const clinicCard = clinicSave?.closest('.card');
+  if (clinicCard) clinicCard.style.display = canAdminister ? '' : 'none';
+
+  const usersCard = document.getElementById('card-usuarios-gestao');
+  if (usersCard) usersCard.style.display = settingsCapability('canManageUsers') ? '' : 'none';
+
+  const backupButton = document.querySelector('#page-configuracoes [onclick="fazerBackup()"]');
+  const backupCard = backupButton?.closest('.card');
+  if (backupCard) backupCard.style.display = settingsCapability('canManageBackups') ? '' : 'none';
+}
+
 function carregarConfig() {
+  aplicarPermissoesConfiguracoes();
+  if (!settingsCapability('canManageClinicSettings')) return;
   const rows = DB.query('SELECT * FROM configuracoes');
   const map = {};
   rows.forEach(r => map[r.chave] = r.valor);
@@ -10,6 +42,7 @@ function carregarConfig() {
 }
 
 function salvarConfig() {
+  if (!requireSettingsCapability('canManageClinicSettings', 'Apenas administradores podem alterar a identidade da clínica.')) return;
   const nome = document.getElementById('cfg-nome').value.trim();
   const cnpj = document.getElementById('cfg-cnpj').value.trim();
   const end = document.getElementById('cfg-endereco').value.trim();
@@ -26,6 +59,8 @@ function salvarConfig() {
 }
 
 function carregarUsuariosConfig() {
+  aplicarPermissoesConfiguracoes();
+  if (!settingsCapability('canManageUsers')) return;
   const tbody = document.getElementById('tabela-usuarios');
   if (!tbody) return;
 
@@ -50,13 +85,15 @@ function carregarUsuariosConfig() {
 }
 
 async function salvarNovoUsuario() {
+  if (!requireSettingsCapability('canManageUsers', 'Apenas administradores podem cadastrar usuários.')) return;
   const nome = document.getElementById('usr-nome').value.trim();
   const login = document.getElementById('usr-login').value.trim();
   const senha = document.getElementById('usr-senha').value.trim();
   const nivel = document.getElementById('usr-nivel').value;
 
   if (!nome || !login || !senha) return alert('Preencha nome, login e senha.');
-  if (senha.length < 6) return alert('A senha do usuário deve possuir no mínimo 6 caracteres.');
+  if (senha.length < 10) return alert('A senha do usuário deve possuir no mínimo 10 caracteres.');
+  if (!['admin', 'medico', 'recepcao'].includes(nivel)) return alert('Perfil de acesso inválido.');
 
   const existe = DB.query('SELECT id FROM usuarios WHERE usuario=?', [login]);
   if (existe.length) return alert('Este login de usuário já está em uso.');
@@ -73,6 +110,14 @@ async function salvarNovoUsuario() {
 }
 
 function alternarStatusUsuario(id, statusAtual) {
+  if (!requireSettingsCapability('canManageUsers', 'Apenas administradores podem alterar usuários.')) return;
+  if (Number(id) === Number(currentUser?.id)) return alert('Você não pode desativar o próprio usuário durante a sessão atual.');
+  const target = DB.query('SELECT id,nivel,ativo FROM usuarios WHERE id=?', [id])[0];
+  if (!target) return;
+  if (target.nivel === 'admin' && target.ativo && statusAtual) {
+    const activeAdmins = Number(DB.query("SELECT COUNT(*) c FROM usuarios WHERE nivel='admin' AND ativo=1")[0]?.c || 0);
+    if (activeAdmins <= 1) return alert('O último administrador ativo não pode ser desativado.');
+  }
   const novoStatus = statusAtual ? 0 : 1;
   DB.run('UPDATE usuarios SET ativo=? WHERE id=?', [novoStatus, id]);
   carregarUsuariosConfig();
@@ -92,26 +137,53 @@ async function alterarSenha() {
   alert('Sua senha foi alterada com sucesso.');
 }
 
-async function fazerBackup() {
-  const data = DB.export();
-  if (window.electronAPI) {
-    const res = await window.electronAPI.salvarBackup(Array.from(data));
-    if (res.ok) alert('Backup salvo com segurança em:\n' + res.path);
-  } else {
-    alert('Backup disponível apenas no aplicativo Electron.');
+function solicitarSenhaBackup(confirmar = false) {
+  const senha = prompt('Senha do backup (mínimo 10 caracteres). Guarde esta senha: ela será necessária para restaurar o arquivo em outro computador.');
+  if (senha == null) return null;
+  if (senha.length < 10) {
+    alert('A senha do backup deve ter pelo menos 10 caracteres.');
+    return null;
   }
+  if (confirmar) {
+    const repeticao = prompt('Confirme a senha do backup:');
+    if (repeticao !== senha) {
+      alert('As senhas do backup não coincidem.');
+      return null;
+    }
+  }
+  return senha;
+}
+
+async function fazerBackup() {
+  if (!requireSettingsCapability('canManageBackups', 'Apenas administradores podem exportar backups.')) return;
+  if (!window.electronAPI) return alert('Backup disponível apenas no aplicativo Electron.');
+  const senha = solicitarSenhaBackup(true);
+  if (!senha) return;
+  const data = DB.export();
+  const res = await window.electronAPI.salvarBackup(Array.from(data), senha);
+  if (res.ok) alert('Backup criptografado salvo com segurança em:\n' + res.path);
+  else if (!res.cancelado) alert('Não foi possível criar o backup.\n' + (res.error || 'Erro desconhecido.'));
 }
 
 async function restaurarBackup() {
-  if (!confirm('ATENÇÃO: Restaurar um backup substituirá todos os dados atuais do sistema. Deseja continuar?')) return;
-  if (window.electronAPI) {
-    const res = await window.electronAPI.abrirBackup();
-    if (res.ok) {
-      DB.load(res.data);
-      alert('Backup restaurado com sucesso! O sistema será recarregado.');
-      location.reload();
-    }
-  } else {
-    alert('Restauração disponível apenas no Electron.');
+  if (!requireSettingsCapability('canManageBackups', 'Apenas administradores podem restaurar backups.')) return;
+  if (!confirm('ATENÇÃO: Restaurar um backup substituirá todos os dados atuais do sistema. Um snapshot de segurança será criado antes da troca. Deseja continuar?')) return;
+  if (!window.electronAPI) return alert('Restauração disponível apenas no Electron.');
+
+  const senha = solicitarSenhaBackup(false);
+  if (!senha) return;
+  const res = await window.electronAPI.abrirBackup(senha);
+  if (!res.ok) {
+    if (!res.cancelado) alert('Não foi possível abrir o backup.\n' + (res.error || 'Arquivo inválido ou senha incorreta.'));
+    return;
+  }
+
+  try {
+    await DB.restoreValidated(res.data);
+    const legado = res.legacy ? '\n\nO backup legado foi validado e convertido para o armazenamento criptografado atual.' : '';
+    alert('Backup validado e restaurado com sucesso. O sistema será recarregado.' + legado);
+    location.reload();
+  } catch (error) {
+    alert('A restauração foi cancelada porque o banco não passou na validação de integridade.\n' + error.message);
   }
 }

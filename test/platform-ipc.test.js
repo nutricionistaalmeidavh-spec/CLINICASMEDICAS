@@ -9,8 +9,10 @@ const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8'
 test('desktop bridge exposes automatic migration backup without generic filesystem access', () => {
   assert.match(main, /criar-backup-pre-migracao/);
   assert.match(preload, /criarBackupPreMigracao/);
-  assert.match(main, /pre-migration-v/);
-  assert.match(main, /backups/);
+  assert.match(main, /createSafetySnapshot\('pre-migration'/);
+  assert.match(main, /backupDirectory/);
+  assert.match(main, /fs\.copyFileSync/);
+  assert.doesNotMatch(preload, /require\(['"]fs['"]\)/);
 });
 
 test('import bridge only selects supported patient import files', () => {

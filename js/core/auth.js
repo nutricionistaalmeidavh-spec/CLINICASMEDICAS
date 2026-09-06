@@ -1,4 +1,24 @@
 (function (root) {
+  async function requireDefaultPasswordReplacement(userRow, suppliedPassword) {
+    if (suppliedPassword !== '123') return true;
+    const nova = prompt('Esta conta ainda usa a senha inicial do sistema. Defina agora uma nova senha com pelo menos 10 caracteres:');
+    if (nova == null) return false;
+    if (nova.length < 10 || nova === '123') {
+      alert('A nova senha deve possuir pelo menos 10 caracteres e não pode ser a senha inicial.');
+      return false;
+    }
+    const confirmacao = prompt('Confirme a nova senha:');
+    if (confirmacao !== nova) {
+      alert('As senhas não coincidem.');
+      return false;
+    }
+    const newHash = await root.hashPassword(nova);
+    root.DB.run('UPDATE usuarios SET senha=? WHERE id=?', [newHash, userRow.id]);
+    userRow.senha = newHash;
+    alert('Senha inicial substituída com sucesso. Continue usando a nova senha nos próximos acessos.');
+    return true;
+  }
+
   async function fazerLogin() {
     if (!root.DB || !root.DB.isReady()) return alert('Banco de dados ainda não está pronto. Aguarde ou recarregue (Ctrl+R).');
     const user = document.getElementById('login-user').value.trim();
@@ -13,6 +33,7 @@
     const passwordHash = await root.hashPassword(pass);
     if (rows.length && rows[0].senha !== passwordHash) rows.length = 0;
     if (rows.length === 0) return alert('Usuário ou senha inválidos.');
+    if (!(await requireDefaultPasswordReplacement(rows[0], pass))) return;
 
     currentUser = rows[0];
     const nivel = currentUser.nivel || 'admin';
@@ -37,11 +58,20 @@
 
     const userManageCard = document.getElementById('card-usuarios-gestao');
     if (userManageCard) userManageCard.style.display = nivel === 'admin' ? 'block' : 'none';
+
+    const canOpenCrm = root.PlennusAccessControl.canNavigateToPage(nivel, 'crm');
+    document.querySelectorAll('.dashboard-kpi-action').forEach(item => {
+      const action = item.getAttribute('onclick') || '';
+      if (action.includes("navegar('crm')")) item.style.display = canOpenCrm ? '' : 'none';
+    });
+    const returnsPanel = document.getElementById('dashboard-retornos')?.closest('.dashboard-panel');
+    if (returnsPanel) returnsPanel.style.display = canOpenCrm ? '' : 'none';
   }
 
   function fazerLogout() {
     if (confirm('Deseja realmente sair?')) {
       currentUser = null;
+      document.getElementById('login-pass').value = '';
       document.getElementById('app-screen').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
     }
