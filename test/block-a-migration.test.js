@@ -27,8 +27,9 @@ test('Block A migration creates additive operational schema and advances user_ve
   const database = await createBaselineDatabase();
   const result = await migrations.runMigrations({ database });
 
-  assert.deepEqual(result.applied, [1, 2]);
-  assert.equal(migrations.readUserVersion(database), 2);
+  assert.ok(result.applied.includes(1));
+  assert.ok(result.applied.includes(2));
+  assert.equal(migrations.readUserVersion(database), migrations.CURRENT_SCHEMA_VERSION);
 
   const tables = tableNames(database);
   for (const table of [
@@ -49,6 +50,6 @@ test('Block A migration is idempotent after schema version is current', async ()
   await migrations.runMigrations({ database });
   const second = await migrations.runMigrations({ database });
   assert.deepEqual(second.applied, []);
-  assert.equal(second.from, 2);
-  assert.equal(second.to, 2);
+  assert.equal(second.from, migrations.CURRENT_SCHEMA_VERSION);
+  assert.equal(second.to, migrations.CURRENT_SCHEMA_VERSION);
 });
