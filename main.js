@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } = require('ele
 const path = require('path');
 const fs = require('fs');
 const { parseXlsx } = require('./js/core/xlsx-node');
+const backupFormat = require('./js/core/backup-format');
 
 app.disableHardwareAcceleration();
 
@@ -41,37 +42,65 @@ function isAllowedClinicalFile(filePath) {
     && CLINICAL_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
-function createPreMigrationBackup(fromVersion = 0) {
-  if (lastPreMigrationBackup) return lastPreMigrationBackup;
+function pruneSafetySnapshots(dir, keep = 20) {
+  const snapshots = fs.readdirSync(dir)
+    .filter(name => /^(pre-migration|pre-restore)-.*\.db\.enc$/.test(name))
+    .map(name => ({ name, full: path.join(dir, name), mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime);
+  snapshots.slice(keep).forEach(item => { try { fs.unlinkSync(item.full); } catch (_) { /* no-op */ } });
+}
+
+function createSafetySnapshot(kind, label = '') {
   const source = databasePath();
   if (!fs.existsSync(source)) return { ok: true, skipped: true };
   try {
     const dir = backupDirectory();
     fs.mkdirSync(dir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const target = path.join(dir, `pre-migration-v${Number(fromVersion) || 0}-${stamp}.db.enc`);
+    const suffix = label ? `-${String(label).replace(/[^a-zA-Z0-9_-]/g, '')}` : '';
+    const target = path.join(dir, `${kind}${suffix}-${stamp}.db.enc`);
     fs.copyFileSync(source, target);
-    const backups = fs.readdirSync(dir)
-      .filter(name => /^pre-migration-v.*\.db\.enc$/.test(name))
-      .map(name => ({ name, full: path.join(dir, name), mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    backups.slice(10).forEach(item => { try { fs.unlinkSync(item.full); } catch (_) { /* no-op */ } });
-    lastPreMigrationBackup = { ok: true, path: target };
-    return lastPreMigrationBackup;
+    pruneSafetySnapshots(dir);
+    return { ok: true, path: target };
   } catch (error) {
-    console.error('Falha ao criar backup pré-migração:', error);
-    lastPreMigrationBackup = { ok: false, error: error.message };
-    return lastPreMigrationBackup;
+    console.error(`Falha ao criar snapshot ${kind}:`, error);
+    return { ok: false, error: error.message };
   }
+}
+
+function createPreMigrationBackup(fromVersion = 0) {
+  if (lastPreMigrationBackup) return lastPreMigrationBackup;
+  lastPreMigrationBackup = createSafetySnapshot('pre-migration', `v${Number(fromVersion) || 0}`);
+  return lastPreMigrationBackup;
+}
+
+function configureWindowSecurity(window) {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
+    return { action: 'deny' };
+  });
+  window.webContents.on('will-navigate', (event, url) => {
+    if (url !== window.webContents.getURL()) event.preventDefault();
+  });
+  window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
 }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 750, minWidth: 1100, minHeight: 650,
     backgroundColor: '#F5F5F5',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      navigateOnDragDrop: false
+    },
     show: false, title: 'Plennus Clinic'
   });
+  configureWindowSecurity(mainWindow);
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => mainWindow.show());
   setTimeout(() => { if (mainWindow && !mainWindow.isVisible()) mainWindow.show(); }, 5000);
@@ -84,21 +113,54 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-ipcMain.handle('salvar-backup', async (event, data) => {
-  const { filePath } = await dialog.showSaveDialog(mainWindow, {
-    title: 'Salvar Backup', defaultPath: `backup_plennus_${new Date().toISOString().slice(0,10)}.db`,
-    filters: [{ name: 'Banco de Dados', extensions: ['db'] }]
-  });
-  if (filePath) { fs.writeFileSync(filePath, Buffer.from(data)); return { ok: true, path: filePath }; }
-  return { ok: false };
+ipcMain.handle('salvar-backup', async (event, data, password) => {
+  try {
+    const encrypted = backupFormat.encryptBackup(data, password);
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Salvar Backup Criptografado',
+      defaultPath: `backup_plennus_${new Date().toISOString().slice(0,10)}.plennusbkp`,
+      filters: [{ name: 'Backup Plennus criptografado', extensions: ['plennusbkp'] }]
+    });
+    if (!filePath) return { ok: false, cancelado: true };
+    fs.writeFileSync(filePath, encrypted, { encoding: 'utf8', mode: 0o600 });
+    return { ok: true, path: filePath };
+  } catch (error) {
+    console.error('Falha ao gerar backup:', error);
+    return { ok: false, error: error.message };
+  }
 });
 
-ipcMain.handle('abrir-backup', async () => {
-  const { filePaths } = await dialog.showOpenDialog(mainWindow, {
-    title: 'Restaurar Backup', filters: [{ name: 'Banco de Dados', extensions: ['db'] }], properties: ['openFile']
+ipcMain.handle('abrir-backup', async (event, password) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Restaurar Backup',
+    filters: [
+      { name: 'Backup Plennus', extensions: ['plennusbkp'] },
+      { name: 'Backup legado SQLite', extensions: ['db'] }
+    ],
+    properties: ['openFile']
   });
-  if (filePaths && filePaths[0]) return { ok: true, data: Array.from(fs.readFileSync(filePaths[0])) };
-  return { ok: false };
+  if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
+
+  const filePath = filePaths[0];
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || stat.size <= 0 || stat.size > backupFormat.MAX_BACKUP_BYTES * 2) {
+      return { ok: false, error: 'Arquivo de backup inválido ou muito grande.' };
+    }
+
+    const legacy = path.extname(filePath).toLowerCase() === '.db';
+    const databaseBytes = legacy
+      ? backupFormat.validateSqliteBytes(fs.readFileSync(filePath))
+      : backupFormat.decryptBackup(fs.readFileSync(filePath, 'utf8'), password);
+
+    const safety = createSafetySnapshot('pre-restore');
+    if (!safety.ok) return { ok: false, error: 'Não foi possível criar o snapshot de segurança antes da restauração.' };
+
+    return { ok: true, data: Array.from(databaseBytes), legacy, safetyBackup: safety.path || null };
+  } catch (error) {
+    console.error('Falha ao abrir backup:', error);
+    return { ok: false, error: error.message };
+  }
 });
 
 ipcMain.handle('criar-backup-pre-migracao', (event, meta = {}) => createPreMigrationBackup(meta.fromVersion));
@@ -171,7 +233,8 @@ ipcMain.handle('gerar-pdf', async (event, htmlContent, nomePadrao) => {
   if (typeof htmlContent !== 'string' || htmlContent.length > 5_000_000) return { ok: false };
   let printWin = null;
   try {
-    printWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    printWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
+    configureWindowSecurity(printWin);
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     const pdfBuffer = await printWin.webContents.printToPDF({
       printBackground: true, pageSize: 'A4',
@@ -195,7 +258,8 @@ ipcMain.handle('imprimir-documento', async (event, htmlContent) => {
   if (typeof htmlContent !== 'string' || htmlContent.length > 5_000_000) return { ok: false };
   let printWin = null;
   try {
-    printWin = new BrowserWindow({ width: 800, height: 900, show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    printWin = new BrowserWindow({ width: 800, height: 900, show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
+    configureWindowSecurity(printWin);
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     printWin.webContents.print({ silent: false, printBackground: true }, () => { if (printWin) printWin.close(); });
     return { ok: true };
@@ -221,7 +285,7 @@ ipcMain.handle('carregar-banco', () => {
   if (!backup.ok) console.error('Backup de segurança não pôde ser criado antes de carregar o banco:', backup.error);
   try {
     const encrypted = fs.readFileSync(filePath);
-    if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do Windows indisponível');
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema operacional indisponível');
     return JSON.parse(safeStorage.decryptString(encrypted));
   } catch (error) {
     console.error('Não foi possível ler o banco local:', error);
@@ -230,7 +294,7 @@ ipcMain.handle('carregar-banco', () => {
 });
 
 ipcMain.handle('salvar-banco', (event, data) => {
-  if (!Array.isArray(data) || data.length > 50_000_000 || !safeStorage.isEncryptionAvailable()) return { ok: false };
+  if (!Array.isArray(data) || data.length > backupFormat.MAX_BACKUP_BYTES || !safeStorage.isEncryptionAvailable()) return { ok: false };
   try {
     fs.writeFileSync(databasePath(), safeStorage.encryptString(JSON.stringify(data)), { mode: 0o600 });
     return { ok: true };
