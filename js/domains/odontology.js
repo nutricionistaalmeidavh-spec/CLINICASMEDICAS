@@ -2,6 +2,7 @@
   const model = root.PlennusOdontologyModel;
   let selectedPatientId = null;
   let selectedTooth = null;
+  let selectedElementId = null;
   let selectedPlanId = null;
   let selectedBudgetId = null;
   let pendingTreatmentItemId = null;
@@ -52,7 +53,13 @@
             <div class="card">
               <div class="odontogram-toolbar"><div><div class="card-title">Odontograma</div><small class="text-muted">Numeração FDI permanente e decídua.</small></div><select id="od-denticao"><option value="permanente">Permanente</option><option value="decidua">Decídua</option></select></div>
               <div id="od-tooth-grid" class="odontogram-grid"></div>
-              <div class="odontology-selection"><span>Dente selecionado:</span><strong id="od-selected-tooth">—</strong></div>
+              <div class="supernumerary-toolbar">
+                <div><strong>Supranumerários</strong><small class="text-muted">Selecione um dente FDI e adicione SN1, SN2...</small></div>
+                <button id="od-add-supernumerary" type="button" class="btn btn-secondary btn-sm">+ Adicionar</button>
+              </div>
+              <div id="od-supernumerary-strip" class="supernumerary-strip"></div>
+              <div class="odontology-selection"><span>Elemento selecionado:</span><strong id="od-selected-tooth">—</strong></div>
+              <div id="od-supernumerary-status" class="supernumerary-status-actions" hidden></div>
               <div id="od-condition-list" class="odontology-condition-list"></div>
             </div>
             <div class="card">
@@ -75,8 +82,9 @@
             </div>
             <div class="card">
               <div class="card-title">Adicionar procedimento</div>
-              <div class="form-row"><div class="form-group"><label>Procedimento</label><select id="od-item-procedure"></select></div><div class="form-group"><label>Dente</label><input id="od-item-tooth" type="number" placeholder="11"></div><div class="form-group"><label>Face</label><select id="od-item-face"><option value="">Dente inteiro</option></select></div></div>
-              <div class="form-row"><div class="form-group"><label>Descrição</label><input id="od-item-description"></div><div class="form-group"><label>Qtd.</label><input id="od-item-qty" type="number" min="0.01" step="0.01" value="1"></div></div>
+              <div class="form-row"><div class="form-group"><label>Dente / referência</label><input id="od-item-tooth" type="number" placeholder="11"></div><div class="form-group"><label>Face</label><select id="od-item-face"><option value="">Dente inteiro</option></select></div></div>
+              <div id="od-item-dental-target" class="text-muted treatment-item-target"></div>
+              <div class="form-row"><div class="form-group"><label>Procedimento</label><select id="od-item-procedure"></select></div><div class="form-group"><label>Descrição</label><input id="od-item-description"></div><div class="form-group"><label>Qtd.</label><input id="od-item-qty" type="number" min="0.01" step="0.01" value="1"></div></div>
               <div class="form-row"><div class="form-group"><label>Valor unitário</label><input id="od-item-unit" type="number" min="0" step="0.01"></div><div class="form-group"><label>Desconto</label><input id="od-item-discount" type="number" min="0" step="0.01" value="0"></div></div>
               <button id="od-add-item" class="btn btn-primary btn-sm">Adicionar ao plano</button>
             </div>
@@ -94,10 +102,12 @@
 
     page.querySelector('#od-paciente').addEventListener('change', event => selectPatient(event.target.value));
     page.querySelector('#od-denticao').addEventListener('change', renderOdontogram);
+    page.querySelector('#od-add-supernumerary').addEventListener('click', createSupernumerary);
     page.querySelector('#od-save-condition').addEventListener('click', saveCondition);
     page.querySelector('#od-create-plan').addEventListener('click', createPlan);
     page.querySelector('#od-plan-select').addEventListener('change', event => selectPlan(event.target.value));
     page.querySelector('#od-item-procedure').addEventListener('change', syncProcedureDefaults);
+    page.querySelector('#od-item-tooth').addEventListener('input', syncManualDentalTarget);
     page.querySelector('#od-add-item').addEventListener('click', addPlanItem);
     page.querySelector('#od-generate-budget').addEventListener('click', () => generateBudget(selectedPlanId));
     page.querySelectorAll('[data-od-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.odTab)));
@@ -151,6 +161,7 @@
   function selectPatient(value) {
     selectedPatientId = Number(value) || null;
     selectedTooth = null;
+    selectedElementId = null;
     selectedPlanId = null;
     selectedBudgetId = null;
     const workspace = document.getElementById('od-workspace');
@@ -169,52 +180,150 @@
     return root.DB.query('SELECT * FROM odontogramas WHERE paciente_id=?', [patientId])[0];
   }
 
+  function currentDentalTarget() {
+    if (selectedElementId && root.PlennusSupernumerary) {
+      const target = root.PlennusSupernumerary.targetForElement(selectedElementId);
+      if (target) return target;
+    }
+    if (!model.isValidFdiTooth(selectedTooth)) return null;
+    return { kind: 'fdi', tooth: Number(selectedTooth), referenceTooth: Number(selectedTooth), label: String(selectedTooth) };
+  }
+
+  function renderSupernumeraries(odontogram, dentition) {
+    const strip = document.getElementById('od-supernumerary-strip');
+    const addButton = document.getElementById('od-add-supernumerary');
+    if (!strip) return;
+    if (addButton) addButton.hidden = !canEditClinical();
+    if (!root.PlennusSupernumerary) {
+      strip.innerHTML = '<span class="text-muted">Módulo supranumerário indisponível.</span>';
+      return;
+    }
+    const elements = root.PlennusSupernumerary.list(odontogram.id).filter(element => element.denticao === dentition);
+    strip.innerHTML = elements.length ? elements.map(element => `<button type="button" class="supernumerary-btn ${selectedElementId === element.id ? 'active' : ''} status-${element.status}" onclick="PlennusOdontology.selectSupernumerary(${element.id})"><strong>${root.escapeHTML(element.label)}</strong><small>${root.escapeHTML(label(element.status))}</small></button>`).join('') : '<span class="text-muted">Nenhum supranumerário registrado nesta dentição.</span>';
+  }
+
   function renderOdontogram() {
     if (!selectedPatientId) return;
     const odontogram = ensureOdontogram(selectedPatientId);
     const dentition = document.getElementById('od-denticao')?.value || 'permanente';
     const teeth = dentition === 'decidua' ? model.deciduousTeeth() : model.permanentTeeth();
-    const active = root.DB.query('SELECT dente,COUNT(*) c FROM odontograma_condicoes WHERE odontograma_id=? AND ativo=1 GROUP BY dente', [odontogram.id]);
+    const active = root.DB.query('SELECT dente,COUNT(*) c FROM odontograma_condicoes WHERE odontograma_id=? AND ativo=1 AND elemento_dental_id IS NULL GROUP BY dente', [odontogram.id]);
     const withConditions = new Set(active.map(row => Number(row.dente)));
     const grid = document.getElementById('od-tooth-grid');
     if (!grid) return;
     grid.classList.toggle('deciduous', dentition === 'decidua');
-    grid.innerHTML = teeth.map(tooth => `<button type="button" class="tooth-btn ${selectedTooth === tooth ? 'active' : ''} ${withConditions.has(tooth) ? 'has-condition' : ''}" onclick="PlennusOdontology.selectTooth(${tooth})">${tooth}</button>`).join('');
+    grid.innerHTML = teeth.map(tooth => `<button type="button" class="tooth-btn ${selectedElementId == null && selectedTooth === tooth ? 'active' : ''} ${withConditions.has(tooth) ? 'has-condition' : ''}" onclick="PlennusOdontology.selectTooth(${tooth})">${tooth}</button>`).join('');
+    renderSupernumeraries(odontogram, dentition);
     renderConditions();
+  }
+
+  function syncPlanDentalTarget() {
+    const target = currentDentalTarget();
+    const input = document.getElementById('od-item-tooth');
+    const summary = document.getElementById('od-item-dental-target');
+    if (input && target) input.value = target.referenceTooth;
+    if (summary) summary.textContent = target?.kind === 'supernumerary' ? `Elemento selecionado: ${target.label}` : '';
+  }
+
+  function syncManualDentalTarget() {
+    const input = document.getElementById('od-item-tooth');
+    if (!input || !selectedElementId) return;
+    const element = root.PlennusSupernumerary?.get(selectedElementId);
+    if (!element || Number(input.value) !== Number(element.dente_referencia_fdi)) {
+      selectedElementId = null;
+      const summary = document.getElementById('od-item-dental-target');
+      if (summary) summary.textContent = '';
+      renderOdontogram();
+    }
   }
 
   function selectTooth(tooth) {
     if (!model.isValidFdiTooth(tooth)) return;
     selectedTooth = Number(tooth);
-    const selected = document.getElementById('od-selected-tooth');
-    if (selected) selected.textContent = selectedTooth;
-    const itemTooth = document.getElementById('od-item-tooth');
-    if (itemTooth) itemTooth.value = selectedTooth;
+    selectedElementId = null;
+    syncPlanDentalTarget();
     renderOdontogram();
+  }
+
+  function selectSupernumerary(id) {
+    const element = root.PlennusSupernumerary?.get(id);
+    if (!element) return;
+    selectedElementId = element.id;
+    selectedTooth = element.dente_referencia_fdi;
+    syncPlanDentalTarget();
+    renderOdontogram();
+  }
+
+  function createSupernumerary() {
+    if (!canEditClinical()) return;
+    if (!selectedPatientId || !model.isValidFdiTooth(selectedTooth)) return alert('Selecione primeiro o dente FDI de referência.');
+    if (!root.PlennusSupernumerary) return alert('Módulo supranumerário indisponível.');
+    const odontogram = ensureOdontogram(selectedPatientId);
+    try {
+      const created = root.PlennusSupernumerary.create({ odontogramId: odontogram.id, referenceTooth: selectedTooth });
+      selectedElementId = created.id;
+      selectedTooth = created.dente_referencia_fdi;
+      syncPlanDentalTarget();
+      renderOdontogram();
+    } catch (error) {
+      alert(error.message || 'Não foi possível criar o supranumerário.');
+    }
+  }
+
+  function setSupernumeraryStatus(id, status) {
+    if (!canEditClinical() || !root.PlennusSupernumerary) return;
+    try {
+      root.PlennusSupernumerary.setStatus(id, status);
+      selectedElementId = Number(id);
+      renderOdontogram();
+    } catch (error) {
+      alert(error.message || 'Não foi possível alterar o status do supranumerário.');
+    }
   }
 
   function renderConditions() {
     const selected = document.getElementById('od-selected-tooth');
-    if (selected) selected.textContent = selectedTooth || '—';
+    const statusActions = document.getElementById('od-supernumerary-status');
+    const target = currentDentalTarget();
+    if (selected) selected.textContent = target?.label || '—';
     const container = document.getElementById('od-condition-list');
     if (!container) return;
-    if (!selectedPatientId || !selectedTooth) {
+    if (!selectedPatientId || !target) {
+      if (statusActions) statusActions.hidden = true;
       container.innerHTML = '<div class="odontology-empty">Selecione um dente.</div>';
       return;
     }
     const odontogram = ensureOdontogram(selectedPatientId);
-    const rows = root.DB.query('SELECT * FROM odontograma_condicoes WHERE odontograma_id=? AND dente=? AND ativo=1 ORDER BY id DESC', [odontogram.id, selectedTooth]);
-    container.innerHTML = rows.length ? rows.map(row => `<div class="odontology-condition-item"><div><strong>${root.escapeHTML(label(row.condicao))}</strong><div class="text-muted">${root.escapeHTML(row.face ? label(row.face) : 'Dente inteiro')}${row.observacao ? ` • ${root.escapeHTML(row.observacao)}` : ''}</div></div>${canEditClinical() ? `<button class="btn btn-danger btn-sm" onclick="PlennusOdontology.removeCondition(${row.id})">Remover</button>` : ''}</div>`).join('') : '<div class="odontology-empty">Nenhuma condição ativa neste dente.</div>';
+    let rows;
+    if (target.kind === 'supernumerary') {
+      rows = root.PlennusSupernumerary?.conditions(target.elementId) || [];
+      if (statusActions) {
+        statusActions.hidden = !canEditClinical();
+        statusActions.innerHTML = `<span>Status de ${root.escapeHTML(target.label)}:</span>
+          <button type="button" class="btn btn-sm ${target.status === 'presente' ? 'btn-primary' : 'btn-secondary'}" onclick="PlennusOdontology.setSupernumeraryStatus(${target.elementId},'presente')">Presente</button>
+          <button type="button" class="btn btn-sm ${target.status === 'ausente' ? 'btn-primary' : 'btn-secondary'}" onclick="PlennusOdontology.setSupernumeraryStatus(${target.elementId},'ausente')">Ausente</button>
+          <button type="button" class="btn btn-sm ${target.status === 'extraido' ? 'btn-primary' : 'btn-secondary'}" onclick="PlennusOdontology.setSupernumeraryStatus(${target.elementId},'extraido')">Extraído</button>`;
+      }
+    } else {
+      if (statusActions) statusActions.hidden = true;
+      rows = root.DB.query('SELECT * FROM odontograma_condicoes WHERE odontograma_id=? AND dente=? AND elemento_dental_id IS NULL AND ativo=1 ORDER BY id DESC', [odontogram.id, target.tooth]);
+    }
+    container.innerHTML = rows.length ? rows.map(row => `<div class="odontology-condition-item"><div><strong>${root.escapeHTML(label(row.condicao))}</strong><div class="text-muted">${root.escapeHTML(row.face ? label(row.face) : 'Dente inteiro')}${row.observacao ? ` • ${root.escapeHTML(row.observacao)}` : ''}</div></div>${canEditClinical() ? `<button class="btn btn-danger btn-sm" onclick="PlennusOdontology.removeCondition(${row.id})">Remover</button>` : ''}</div>`).join('') : '<div class="odontology-empty">Nenhuma condição ativa neste elemento.</div>';
   }
 
   function saveCondition() {
     if (!canEditClinical()) return alert('Somente profissional clínico ou administrador pode alterar o odontograma.');
-    if (!selectedPatientId || !selectedTooth) return alert('Selecione um paciente e um dente.');
+    const target = currentDentalTarget();
+    if (!selectedPatientId || !target) return alert('Selecione um paciente e um dente.');
     const condition = document.getElementById('od-condicao').value;
     const face = model.normalizeSurface(document.getElementById('od-face').value);
     const observation = document.getElementById('od-condicao-obs').value.trim() || null;
     const odontogram = ensureOdontogram(selectedPatientId);
-    root.DB.run(`INSERT INTO odontograma_condicoes (odontograma_id,dente,face,condicao,observacao,registrado_por) VALUES (?,?,?,?,?,?)`, [odontogram.id, selectedTooth, face, condition, observation, typeof currentUser !== 'undefined' ? currentUser?.id || null : null]);
+    if (target.kind === 'supernumerary') {
+      root.PlennusSupernumerary.addCondition(target.elementId, { condition, face, observation });
+    } else {
+      root.DB.run(`INSERT INTO odontograma_condicoes (odontograma_id,dente,face,condicao,observacao,registrado_por,elemento_dental_id) VALUES (?,?,?,?,?,?,NULL)`, [odontogram.id, target.tooth, face, condition, observation, typeof currentUser !== 'undefined' ? currentUser?.id || null : null]);
+    }
     root.DB.run("UPDATE odontogramas SET atualizado_em=datetime('now','localtime') WHERE id=?", [odontogram.id]);
     document.getElementById('od-condicao-obs').value = '';
     renderOdontogram();
@@ -262,6 +371,15 @@
     return model.roundCurrency(total);
   }
 
+  function dentalLabelForItem(row) {
+    if (!row) return '';
+    if (row.elemento_dental_id && root.PlennusSupernumerary) {
+      const supernumeraryLabel = root.PlennusSupernumerary.labelForElement(row.elemento_dental_id);
+      if (supernumeraryLabel) return supernumeraryLabel;
+    }
+    return row.dente ? String(row.dente) : '';
+  }
+
   function addPlanItem() {
     if (!selectedPlanId) return alert('Selecione ou crie um plano.');
     const procedureId = Number(document.getElementById('od-item-procedure').value) || null;
@@ -270,6 +388,8 @@
     const toothRaw = document.getElementById('od-item-tooth').value.trim();
     const tooth = toothRaw ? Number(toothRaw) : null;
     if (tooth != null && !model.isValidFdiTooth(tooth)) return alert('Numeração FDI inválida.');
+    const currentTarget = currentDentalTarget();
+    const elementId = currentTarget?.kind === 'supernumerary' && Number(currentTarget.referenceTooth) === tooth ? currentTarget.elementId : null;
     const face = model.normalizeSurface(document.getElementById('od-item-face').value);
     const quantity = model.toNumber(document.getElementById('od-item-qty').value, 1);
     const unitPrice = model.toNumber(document.getElementById('od-item-unit').value);
@@ -277,13 +397,17 @@
     let total;
     try { total = model.calculateTreatmentItemTotal({ quantity, unitPrice, discount }); } catch (error) { return alert(error.message); }
     const plan = root.DB.query('SELECT profissional_id FROM planos_tratamento WHERE id=?', [selectedPlanId])[0];
-    root.DB.run(`INSERT INTO plano_tratamento_itens (plano_id,procedimento_id,profissional_id,descricao,dente,face,quantidade,valor_unitario,desconto,valor_total) VALUES (?,?,?,?,?,?,?,?,?,?)`, [selectedPlanId, procedureId, plan?.profissional_id || null, description, tooth, face, quantity, unitPrice, discount, total]);
+    root.DB.run(`INSERT INTO plano_tratamento_itens (plano_id,procedimento_id,profissional_id,descricao,dente,face,elemento_dental_id,quantidade,valor_unitario,desconto,valor_total) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [selectedPlanId, procedureId, plan?.profissional_id || null, description, tooth, face, elementId, quantity, unitPrice, discount, total]);
     recalcPlanTotal(selectedPlanId);
     document.getElementById('od-item-description').value = '';
     document.getElementById('od-item-tooth').value = '';
     document.getElementById('od-item-unit').value = '';
     document.getElementById('od-item-discount').value = '0';
+    selectedElementId = null;
+    const targetSummary = document.getElementById('od-item-dental-target');
+    if (targetSummary) targetSummary.textContent = '';
     renderPlan();
+    renderOdontogram();
   }
 
   function renderPlan() {
@@ -300,7 +424,8 @@
     if (summary) summary.innerHTML = `<strong>${root.escapeHTML(plan?.titulo || '')}</strong> • ${label(plan?.status)} • ${root.formatMoney(total)}`;
     const rows = root.DB.query(`SELECT i.*,p.nome procedimento FROM plano_tratamento_itens i LEFT JOIN procedimentos p ON p.id=i.procedimento_id WHERE i.plano_id=? ORDER BY i.id`, [selectedPlanId]);
     body.innerHTML = rows.length ? rows.map(row => {
-      const dental = row.dente ? `${row.dente}${row.face ? ` / ${label(row.face)}` : ''}` : '—';
+      const toothLabel = dentalLabelForItem(row);
+      const dental = toothLabel ? `${toothLabel}${row.face ? ` / ${label(row.face)}` : ''}` : '—';
       const schedule = row.status === 'planejado' ? `<button class="btn btn-primary btn-sm" onclick="PlennusOdontology.prepareAppointment(${row.id})">Agendar</button>` : '';
       const cancel = row.status !== 'realizado' && row.status !== 'cancelado' ? `<button class="btn btn-danger btn-sm" onclick="PlennusOdontology.cancelPlanItem(${row.id})">Cancelar</button>` : '';
       return `<tr><td><strong>${root.escapeHTML(row.descricao)}</strong><div class="treatment-item-meta">${root.escapeHTML(row.procedimento || '')}</div></td><td>${root.escapeHTML(dental)}</td><td>${root.formatMoney(Number(row.valor_total || 0))}</td><td>${label(row.status)}</td><td>${schedule} ${cancel}</td></tr>`;
@@ -380,9 +505,11 @@
     if (budget) {
       const budgetItem = root.DB.query('SELECT * FROM orcamento_odontologico_itens WHERE orcamento_id=? AND plano_item_id=?', [budget.id, item.id])[0];
       if (budgetItem?.status !== 'aprovado') return { handled: true, charge: null, reason: 'Item odontológico sem aprovação financeira.' };
-      return { handled: true, charge: { amount: Number(budgetItem.valor_total || 0), description: `${budgetItem.descricao} — ${item.plano_titulo}`, procedureId: item.procedimento_id } };
+      const dental = budgetItem.rotulo_dental || dentalLabelForItem(item);
+      return { handled: true, charge: { amount: Number(budgetItem.valor_total || 0), description: `${budgetItem.descricao}${dental ? ` — ${dental}` : ''} — ${item.plano_titulo}`, procedureId: item.procedimento_id } };
     }
-    return { handled: true, charge: { amount: Number(item.valor_total || 0), description: `${item.descricao} — ${item.plano_titulo}`, procedureId: item.procedimento_id } };
+    const dental = dentalLabelForItem(item);
+    return { handled: true, charge: { amount: Number(item.valor_total || 0), description: `${item.descricao}${dental ? ` — ${dental}` : ''} — ${item.plano_titulo}`, procedureId: item.procedimento_id } };
   }
 
   function generateBudget(planId) {
@@ -396,7 +523,10 @@
     const total = model.roundCurrency(items.reduce((sum, item) => sum + Number(item.valor_total || 0), 0));
     root.DB.run(`INSERT INTO orcamentos_odontologicos (plano_id,paciente_id,versao,valor_bruto,desconto,valor_total) VALUES (?,?,?,?,?,?)`, [planId, plan.paciente_id, version, gross, discount, total]);
     const budgetId = root.DB.getLastId();
-    items.forEach(item => root.DB.run(`INSERT INTO orcamento_odontologico_itens (orcamento_id,plano_item_id,descricao,dente,face,quantidade,valor_unitario,desconto,valor_total) VALUES (?,?,?,?,?,?,?,?,?)`, [budgetId, item.id, item.descricao, item.dente || null, item.face || null, item.quantidade, item.valor_unitario, item.desconto, item.valor_total]));
+    items.forEach(item => {
+      const dentalLabel = dentalLabelForItem(item) || null;
+      root.DB.run(`INSERT INTO orcamento_odontologico_itens (orcamento_id,plano_item_id,descricao,dente,face,elemento_dental_id,rotulo_dental,quantidade,valor_unitario,desconto,valor_total) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [budgetId, item.id, item.descricao, item.dente || null, item.face || null, item.elemento_dental_id || null, dentalLabel, item.quantidade, item.valor_unitario, item.desconto, item.valor_total]);
+    });
     root.DB.run("UPDATE planos_tratamento SET status='proposto',atualizado_em=datetime('now','localtime') WHERE id=? AND status='rascunho'", [planId]);
     selectedBudgetId = budgetId;
     loadPlans();
@@ -474,7 +604,10 @@
       ? `<button class="btn btn-primary btn-sm" onclick="PlennusOdontology.sendBudget(${budget.id})">Marcar como enviado</button>`
       : ['enviado', 'parcial'].includes(budget.status)
         ? `<button class="btn btn-success btn-sm" onclick="PlennusOdontology.decideBudgetItems(${budget.id},'aprovado',false)">Aprovar selecionados</button> <button class="btn btn-success btn-sm" onclick="PlennusOdontology.decideBudgetItems(${budget.id},'aprovado',true)">Aprovar tudo</button> <button class="btn btn-danger btn-sm" onclick="PlennusOdontology.decideBudgetItems(${budget.id},'recusado',false)">Recusar selecionados</button>` : '';
-    container.innerHTML = `<div><strong>${root.escapeHTML(budget.plano_titulo)} • versão ${budget.versao}</strong><div class="text-muted">${label(budget.status)} • Total ${root.formatMoney(Number(budget.valor_total || 0))}</div></div><div style="margin:12px 0">${actions}</div>${items.map(item => `<label class="budget-item-row"><input type="checkbox" data-budget-item="${budget.id}" value="${item.id}" ${item.status === 'pendente' ? '' : 'disabled'}><span><strong>${root.escapeHTML(item.descricao)}</strong><small class="text-muted">${item.dente ? ` Dente ${item.dente}${item.face ? ` / ${label(item.face)}` : ''}` : ''}</small></span><span>${root.formatMoney(Number(item.valor_total || 0))}</span><span>${label(item.status)}</span></label>`).join('')}`;
+    container.innerHTML = `<div><strong>${root.escapeHTML(budget.plano_titulo)} • versão ${budget.versao}</strong><div class="text-muted">${label(budget.status)} • Total ${root.formatMoney(Number(budget.valor_total || 0))}</div></div><div style="margin:12px 0">${actions}</div>${items.map(item => {
+      const dental = item.rotulo_dental || (item.dente ? String(item.dente) : '');
+      return `<label class="budget-item-row"><input type="checkbox" data-budget-item="${budget.id}" value="${item.id}" ${item.status === 'pendente' ? '' : 'disabled'}><span><strong>${root.escapeHTML(item.descricao)}</strong><small class="text-muted">${dental ? ` Dente ${root.escapeHTML(dental)}${item.face ? ` / ${label(item.face)}` : ''}` : ''}</small></span><span>${root.formatMoney(Number(item.valor_total || 0))}</span><span>${label(item.status)}</span></label>`;
+    }).join('')}`;
   }
 
   function carregarOdontologia() {
@@ -490,6 +623,9 @@
     carregarOdontologia,
     selectPatient,
     selectTooth,
+    selectSupernumerary,
+    createSupernumerary,
+    setSupernumeraryStatus,
     saveCondition,
     removeCondition,
     createPlan,
@@ -504,7 +640,8 @@
     sendBudget,
     decideBudgetItems,
     selectBudget,
-    canScheduleItem
+    canScheduleItem,
+    dentalLabelForItem
   };
 
   root.PlennusOdontology = api;
