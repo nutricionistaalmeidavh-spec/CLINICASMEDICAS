@@ -51,18 +51,48 @@
   function dashboardLayoutMarkup() {
     return `
       <div class="dashboard-heading-row">
-        <div><h1 class="page-title" style="margin-bottom:4px">Visão geral</h1><p class="text-muted">Operação clínica, desempenho e itens que precisam de atenção.</p></div>
+        <div><h1 class="page-title" style="margin-bottom:5px">Visão geral</h1><p class="text-muted">Seu dia clínico, prioridades e indicadores em uma única visão.</p></div>
         <button class="btn btn-primary btn-sm dashboard-open-agenda" onclick="navegar('agenda')">Abrir agenda</button>
       </div>
 
-      <div class="dashboard-section-label">Hoje</div>
+      <div class="dashboard-focus-grid">
+        <section class="dashboard-panel dashboard-agenda-focus">
+          <div class="dashboard-panel-header">
+            <div><h3>Agenda de hoje</h3><p>Próximos atendimentos em ordem de horário.</p></div>
+            <button class="dashboard-panel-link" type="button" onclick="navegar('agenda')">Ver agenda completa</button>
+          </div>
+          <div id="dashboard-proximos"></div>
+        </section>
+
+        <section class="dashboard-panel dashboard-attention-panel">
+          <div class="dashboard-panel-header">
+            <div><h3>Precisa de atenção</h3><p>Pendências que podem afetar o fluxo de hoje.</p></div>
+          </div>
+          <div class="dashboard-attention-stack">
+            <button class="dashboard-attention-item" type="button" onclick="navegar('agenda')">
+              <span class="dashboard-attention-icon" aria-hidden="true">◷</span>
+              <span class="dashboard-attention-copy"><strong>Pacientes em espera</strong><small>Na recepção aguardando atendimento</small></span>
+              <span class="dashboard-attention-value" id="stat-aguardando">0</span>
+            </button>
+            <button class="dashboard-attention-item" type="button" onclick="navegar('prontuario')">
+              <span class="dashboard-attention-icon" aria-hidden="true">✓</span>
+              <span class="dashboard-attention-copy"><strong>Pendências clínicas</strong><small>Itens abertos no acompanhamento</small></span>
+              <span class="dashboard-attention-value" id="stat-pendencias">0</span>
+            </button>
+            <button class="dashboard-attention-item" type="button" onclick="navegar('prontuario')">
+              <span class="dashboard-attention-icon" aria-hidden="true">⌁</span>
+              <span class="dashboard-attention-copy"><strong>Exames para revisar</strong><small>Resultados aguardando validação</small></span>
+              <span class="dashboard-attention-value" id="stat-exames-pendentes">0</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div class="dashboard-section-label">Indicadores</div>
       <div class="dashboard-kpi-grid">
         <div class="dashboard-kpi"><div class="dashboard-kpi-label">Pacientes ativos</div><div class="dashboard-kpi-value" id="stat-pacientes">0</div></div>
         <div class="dashboard-kpi"><div class="dashboard-kpi-label">Consultas hoje</div><div class="dashboard-kpi-value" id="stat-consultas">0</div></div>
-        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Em espera</div><div class="dashboard-kpi-value" id="stat-aguardando">0</div></div>
-        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Pendências clínicas</div><div class="dashboard-kpi-value" id="stat-pendencias">0</div></div>
-        <div class="dashboard-kpi"><div class="dashboard-kpi-label">Exames para revisar</div><div class="dashboard-kpi-value" id="stat-exames-pendentes">0</div></div>
-        <div class="dashboard-kpi dashboard-financial" id="dashboard-saldo-card"><div class="dashboard-kpi-label">Saldo caixa</div><div class="dashboard-kpi-value" id="stat-saldo">R$ 0,00</div></div>
+        <div class="dashboard-kpi dashboard-financial" id="dashboard-saldo-card"><div class="dashboard-kpi-label">Saldo de caixa</div><div class="dashboard-kpi-value" id="stat-saldo">R$ 0,00</div></div>
       </div>
 
       <div class="dashboard-section-label">Gestão</div>
@@ -77,8 +107,7 @@
         <button type="button" class="dashboard-kpi dashboard-kpi-action dashboard-admin-only" id="dashboard-repasses-card" onclick="navegar('repasses')"><div class="dashboard-kpi-label">Repasses pendentes</div><div class="dashboard-kpi-value" id="stat-repasses-pendentes">0</div><small>Profissionais a liquidar</small></button>
       </div>
 
-      <div class="dashboard-grid">
-        <section class="dashboard-panel"><h3>Próximos atendimentos</h3><div id="dashboard-proximos"></div></section>
+      <div class="dashboard-detail-grid">
         <section class="dashboard-panel"><h3>Sala de espera</h3><div id="dashboard-espera"></div></section>
         <section class="dashboard-panel"><h3>Revisão clínica</h3><div id="dashboard-clinico"></div></section>
         <section class="dashboard-panel"><h3>Retornos</h3><div id="dashboard-retornos"></div></section>
