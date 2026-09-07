@@ -5,6 +5,14 @@
     return typeof root.escapeHTML === 'function' ? root.escapeHTML(value) : String(value ?? '');
   }
 
+  function sessionToken() {
+    return root.DB?.session?.()?.token || null;
+  }
+
+  function clinicalFileApi() {
+    return root.electronAPI?.dataIsolation || null;
+  }
+
   function listClinicalFiles(patientId) {
     return root.DB.query(`
       SELECT * FROM arquivos_clinicos
@@ -33,23 +41,51 @@
     return { ok: true, id: root.DB.getLastId() };
   }
 
+  async function discardSelectedManagedFile() {
+    const token = sessionToken();
+    if (!selectedDesktopFile?.path || !token) return;
+    try { await clinicalFileApi()?.removeClinicalFile?.(token, selectedDesktopFile.path); } catch (_) { /* no-op */ }
+    selectedDesktopFile = null;
+  }
+
   async function chooseClinicalFile() {
-    if (root.electronAPI?.selecionarArquivoClinico) {
-      const result = await root.electronAPI.selecionarArquivoClinico();
-      if (result?.ok) selectedDesktopFile = result;
-      return result;
-    }
-    return { ok: false, unsupported: true };
+    const token = sessionToken();
+    const api = clinicalFileApi();
+    if (!token || !api?.selectClinicalFile) return { ok: false, error: 'Sessão profissional necessária.' };
+    if (selectedDesktopFile?.path) await discardSelectedManagedFile();
+    const result = await api.selectClinicalFile(token);
+    if (result?.ok) selectedDesktopFile = result;
+    return result;
   }
 
   async function openClinicalFile(id) {
-    const row = root.DB.query('SELECT caminho_arquivo FROM arquivos_clinicos WHERE id=?', [id])[0];
-    if (!row?.caminho_arquivo || !root.electronAPI?.abrirArquivoClinico) return { ok: false };
-    return root.electronAPI.abrirArquivoClinico(row.caminho_arquivo);
+    const row = root.DB.query('SELECT caminho_arquivo,mime_type FROM arquivos_clinicos WHERE id=?', [id])[0];
+    const token = sessionToken();
+    const api = clinicalFileApi();
+    if (!row?.caminho_arquivo || !token || !api?.openClinicalFile) return { ok: false };
+
+    let result = await api.openClinicalFile(token, row.caminho_arquivo);
+    if (result?.ok) return result;
+
+    // Compatibilidade controlada: somente um caminho legado já presente no prontuário
+    // do profissional autenticado pode ser adotado para o novo diretório isolado.
+    if (api.adoptLegacyClinicalFile) {
+      const adopted = await api.adoptLegacyClinicalFile(token, row.caminho_arquivo);
+      if (adopted?.ok && adopted.path) {
+        root.DB.run('UPDATE arquivos_clinicos SET caminho_arquivo=?, mime_type=COALESCE(?,mime_type) WHERE id=?', [adopted.path, adopted.mimeType || null, id]);
+        result = await api.openClinicalFile(token, adopted.path);
+      }
+    }
+    return result;
   }
 
-  function deleteClinicalFileMetadata(id, patientId, container) {
-    if (typeof confirm === 'function' && !confirm('Remover este arquivo do prontuário? O arquivo original não será apagado do computador.')) return;
+  async function deleteClinicalFileMetadata(id, patientId, container) {
+    if (typeof confirm === 'function' && !confirm('Remover este arquivo do prontuário? A cópia clínica gerenciada deste profissional também será removida.')) return;
+    const row = root.DB.query('SELECT caminho_arquivo FROM arquivos_clinicos WHERE id=?', [id])[0];
+    const token = sessionToken();
+    if (row?.caminho_arquivo && token) {
+      try { await clinicalFileApi()?.removeClinicalFile?.(token, row.caminho_arquivo); } catch (_) { /* vínculo ainda pode ser removido */ }
+    }
     root.DB.run('DELETE FROM arquivos_clinicos WHERE id=?', [id]);
     renderClinicalFiles(patientId, container);
   }
@@ -88,7 +124,7 @@
               ${row.observacao ? `<div style="margin-top:4px;">${esc(row.observacao)}</div>` : ''}
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-              ${row.caminho_arquivo && root.electronAPI?.abrirArquivoClinico ? `<button class="btn btn-info btn-sm" data-open-clinical-file="${row.id}">Abrir</button>` : ''}
+              ${row.caminho_arquivo && clinicalFileApi()?.openClinicalFile ? `<button class="btn btn-info btn-sm" data-open-clinical-file="${row.id}">Abrir</button>` : ''}
               <button class="btn btn-danger btn-sm" data-delete-clinical-file="${row.id}">Remover vínculo</button>
             </div>
           </div>`).join('') : '<div class="text-muted" style="padding:24px;text-align:center;">Nenhum arquivo clínico registrado.</div>'}
@@ -99,8 +135,8 @@
     if (selectedDesktopFile?.name) fileName.value = selectedDesktopFile.name;
     chooseButton?.addEventListener('click', async () => {
       const result = await chooseClinicalFile();
-      if (result?.ok) fileName.value = result.name || result.path || '';
-      else if (result?.unsupported && typeof alert === 'function') alert('Seleção de arquivo disponível apenas no aplicativo desktop.');
+      if (result?.ok) fileName.value = result.name || '';
+      else if (result?.error && typeof alert === 'function') alert(result.error);
     });
 
     container.querySelector('#clinical-file-save')?.addEventListener('click', () => {
