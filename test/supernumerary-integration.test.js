@@ -7,6 +7,8 @@ const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const model = require('../js/core/supernumerary-model');
 const migrations = require('../js/core/migrations');
+const supernumeraryMigration = require('../js/core/supernumerary-migration');
+supernumeraryMigration.install(migrations);
 
 test('supranumerary model generates stable FDI labels and monotonic indexes', () => {
   assert.equal(model.validateReferenceTooth(11), 11);
@@ -38,6 +40,35 @@ test('schema migration v4 adds dental element identity without replacing legacy 
   assert.match(legacy, /dente INTEGER/);
 });
 
+test('supernumerary schema columns are repaired idempotently after migration registration', () => {
+  const calls = [];
+  const columns = new Map([
+    ['odontograma_condicoes', new Set(['id', 'dente'])],
+    ['plano_tratamento_itens', new Set(['id', 'dente'])],
+    ['orcamento_odontologico_itens', new Set(['id', 'dente'])]
+  ]);
+  const database = {
+    query(sql) {
+      const table = /PRAGMA table_info\(([^)]+)\)/i.exec(sql)?.[1];
+      if (!table) return [];
+      return [...(columns.get(table) || [])].map(name => ({ name }));
+    },
+    run(sql) {
+      calls.push(sql);
+      const match = /ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)/i.exec(sql);
+      if (match) {
+        if (!columns.has(match[1])) columns.set(match[1], new Set());
+        columns.get(match[1]).add(match[2]);
+      }
+    }
+  };
+  const first = supernumeraryMigration.ensureColumns(database);
+  const second = supernumeraryMigration.ensureColumns(database);
+  assert.equal(first.added, 4);
+  assert.equal(second.added, 0);
+  assert.equal(calls.filter(sql => /^ALTER TABLE/i.test(sql)).length, 4);
+});
+
 test('new dental element tables are clinical and never shared through clinic LAN snapshots', () => {
   const isolation = require('../js/core/data-isolation');
   assert.equal(isolation.CLINICAL_TABLES.has('odontograma_elementos'), true);
@@ -58,10 +89,12 @@ test('professional database activation migrates existing clinical databases befo
 test('renderer loads supernumerary modules before odontology integration', () => {
   const navigation = read('js/core/navigation.js');
   const modelIndex = navigation.indexOf("'js/core/supernumerary-model.js'");
+  const migrationIndex = navigation.indexOf("'js/core/supernumerary-migration.js'");
   const dbIndex = navigation.indexOf("'js/domains/supernumerary-database.js'");
   const odontologyIndex = navigation.indexOf("'js/domains/odontology.js'");
   assert.ok(modelIndex >= 0);
-  assert.ok(dbIndex > modelIndex);
+  assert.ok(migrationIndex > modelIndex);
+  assert.ok(dbIndex > migrationIndex);
   assert.ok(odontologyIndex > dbIndex);
 });
 
