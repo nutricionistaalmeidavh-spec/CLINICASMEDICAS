@@ -6,29 +6,73 @@
     crm: 'CRM de pacientes', whatsapp: 'WhatsApp operacional', caixa: 'Caixa', repasses: 'Repasses',
     configuracoes: 'Configurações', importar: 'Importar pacientes', auditoria: 'Auditoria'
   };
+  let moduleObserver = null;
+
+  function appendStylesheet(selector, href, datasetKey) {
+    if (document.querySelector(selector)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset[datasetKey] = '1';
+    document.head.appendChild(link);
+  }
 
   function ensureStylesheet() {
-    if (!document.querySelector('link[data-plennus-platform]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'css/platform.css';
-      link.dataset.plennusPlatform = '1';
-      document.head.appendChild(link);
+    appendStylesheet('link[data-plennus-platform]', 'css/platform.css', 'plennusPlatform');
+    appendStylesheet('link[data-plennus-operations]', 'css/operations.css', 'plennusOperations');
+    appendStylesheet('link[data-plennus-odontology]', 'css/odontology.css', 'plennusOdontology');
+    appendStylesheet('link[data-plennus-sage-modules]', 'css/sage-premium-modules.css', 'plennusSageModules');
+  }
+
+  function addClass(target, className) {
+    if (target && !target.classList.contains(className)) target.classList.add(className);
+  }
+
+  function applyPremiumModuleClasses() {
+    const agenda = document.getElementById('page-agenda');
+    if (agenda) {
+      addClass(agenda, 'agenda-premium-page');
+      addClass(agenda.firstElementChild, 'agenda-premium-header');
+      addClass(agenda.querySelector('.agenda-toolbar'), 'agenda-premium-toolbar');
+      addClass(agenda.querySelector('.tabs'), 'agenda-premium-tabs');
+      addClass(agenda.querySelector('#card-novo-agendamento'), 'agenda-premium-form');
     }
-    if (!document.querySelector('link[data-plennus-operations]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'css/operations.css';
-      link.dataset.plennusOperations = '1';
-      document.head.appendChild(link);
+
+    const pep = document.getElementById('page-prontuario');
+    if (pep) {
+      addClass(pep, 'pep-premium-page');
+      const firstCard = Array.from(pep.children).find(child => child.classList?.contains('card'));
+      addClass(firstCard, 'pep-premium-selector');
+      addClass(pep.querySelector('#pep-patient-card'), 'pep-premium-patient');
+      addClass(pep.querySelector('#pep-corpo'), 'pep-premium-workspace');
     }
-    if (!document.querySelector('link[data-plennus-odontology]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'css/odontology.css';
-      link.dataset.plennusOdontology = '1';
-      document.head.appendChild(link);
+
+    const odontology = document.getElementById('page-odontologia');
+    if (odontology) {
+      addClass(odontology, 'odontology-premium-page');
+      addClass(odontology.querySelector('.page-heading-row'), 'odontology-premium-header');
+      addClass(odontology.querySelector('.odontology-patient-bar'), 'odontology-premium-patient');
+      addClass(odontology.querySelector('.odontology-tabs'), 'odontology-premium-tabs');
+      addClass(odontology.querySelector('#od-workspace'), 'odontology-premium-workspace');
     }
+
+    const finance = document.getElementById('page-financeiro');
+    if (finance) {
+      addClass(finance, 'finance-premium-page');
+      addClass(finance.querySelector('.page-heading-row'), 'finance-premium-header');
+      const cards = finance.querySelectorAll('.operations-grid-2 > .card');
+      addClass(cards[0], 'finance-premium-entry');
+      addClass(cards[1], 'finance-premium-report');
+      const ledger = finance.querySelector('.operations-grid-2 + .card');
+      addClass(ledger, 'finance-premium-ledger');
+    }
+  }
+
+  function observePremiumModules() {
+    const main = document.querySelector('.main-content');
+    if (!main || moduleObserver || typeof MutationObserver === 'undefined') return;
+    moduleObserver = new MutationObserver(() => applyPremiumModuleClasses());
+    moduleObserver.observe(main, { childList: true });
   }
 
   function initials(value) {
@@ -54,6 +98,8 @@
 
   function ensureShellTopbar() {
     ensureStylesheet();
+    applyPremiumModuleClasses();
+    observePremiumModules();
     const main = document.querySelector('.main-content');
     if (!main || document.getElementById('shell-topbar')) {
       syncShellIdentity();
@@ -83,13 +129,19 @@
   function setPageTitle(page) {
     const title = document.getElementById('shell-page-title');
     if (title) title.textContent = PAGE_TITLES[page] || page || 'Plennus Clinic';
+    applyPremiumModuleClasses();
     syncShellIdentity();
   }
 
   function setupShell() {
     ensureShellTopbar();
+    applyPremiumModuleClasses();
+    observePremiumModules();
     syncShellIdentity();
   }
 
-  root.PlennusShell = { PAGE_TITLES, ensureStylesheet, ensureShellTopbar, syncShellIdentity, setPageTitle, setupShell };
+  root.PlennusShell = {
+    PAGE_TITLES, ensureStylesheet, ensureShellTopbar, applyPremiumModuleClasses,
+    syncShellIdentity, setPageTitle, setupShell
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
