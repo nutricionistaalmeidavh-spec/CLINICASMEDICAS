@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   lerImagemClinicaParaDocumento: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:read-clinical-image', sessionToken, filePath),
   carregarBanco: () => ipcRenderer.invoke('carregar-banco'),
   salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data),
+  compositeBackup: {
+    save: (sessionToken, password) => ipcRenderer.invoke('composite-backup:save', sessionToken, password),
+    open: (sessionToken, password) => ipcRenderer.invoke('composite-backup:open', sessionToken, password),
+    commit: (sessionToken, sessionId) => ipcRenderer.invoke('composite-backup:commit', sessionToken, sessionId),
+    rollback: (sessionToken, sessionId) => ipcRenderer.invoke('composite-backup:rollback', sessionToken, sessionId),
+    cancel: (sessionToken, sessionId) => ipcRenderer.invoke('composite-backup:cancel', sessionToken, sessionId)
+  },
   dataIsolation: {
     loadClinic: () => ipcRenderer.invoke('data-isolation:load-clinic'),
     saveClinic: (data) => ipcRenderer.invoke('data-isolation:save-clinic', data),
