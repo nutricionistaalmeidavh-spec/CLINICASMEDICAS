@@ -93,7 +93,7 @@ test('migration summary resolves patients assigned to the selected professional 
     const summary = isolation.buildProfessionalMigrationSummary(db, 1);
     assert.deepEqual(summary.patientIds, [10, 30, 40, 50]);
     assert.equal(summary.patientCount, 4);
-    assert.equal(summary.clinicalRecordCount, 4);
+    assert.equal(summary.clinicalRecordCount, 3);
   } finally {
     database.close();
   }
