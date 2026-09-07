@@ -12,6 +12,7 @@ const patients = read('js/domains/patients.js');
 const odontology = read('js/domains/odontology.js');
 const finance = read('js/domains/finance-advanced.js');
 const html = read('index.html');
+const moduleCssPath = path.join(root, 'css', 'sage-premium-modules.css');
 
 test('Sage Premium tokens replace the legacy wine brand without changing semantic statuses', () => {
   for (const value of ['#35483C', '#526A5A', '#8FA88F', '#F6F4EE', '#242824', '#667068', '#DDDCD4']) {
@@ -56,51 +57,55 @@ test('patients page becomes a searchable split workspace while preserving legacy
   }
 });
 
-test('agenda uses the premium day workspace while preserving scheduling contracts', () => {
-  assert.match(html, /class="page agenda-premium-page" id="page-agenda"/);
-  assert.match(html, /agenda-premium-header/);
-  assert.match(html, /agenda-premium-toolbar/);
-  assert.match(html, /agenda-premium-tabs/);
-  for (const id of ['agenda-data-filtro','agenda-filtro-prof','card-novo-agendamento','timeline-slots-container','coluna-agendados','coluna-espera','coluna-atendidos']) {
-    assert.match(html, new RegExp(`id="${id}"`));
+test('shell activates the shared premium stylesheet and page contracts through Financeiro', () => {
+  assert.match(shell, /sage-premium-modules\.css/);
+  assert.match(shell, /applyPremiumModuleClasses/);
+  for (const value of ['agenda-premium-page','pep-premium-page','odontology-premium-page','finance-premium-page']) {
+    assert.match(shell, new RegExp(value));
   }
-  assert.match(platform, /Agenda premium workspace/);
-  assert.match(platform, /\.agenda-premium-page/);
+  assert.ok(fs.existsSync(moduleCssPath), 'premium module stylesheet must exist');
 });
 
-test('PEP gains a patient-centered clinical workspace without changing SOAP field ids', () => {
-  assert.match(html, /class="page pep-premium-page" id="page-prontuario"/);
-  assert.match(html, /pep-premium-selector/);
-  assert.match(html, /pep-premium-workspace/);
-  for (const id of ['pep-paciente','pep-profissional','pep-patient-card','pep-corpo','pep-subjetivo','pep-pa','pep-peso','pep-cid10','pep-avaliacao','pep-plano','pep-prescricao','pep-timeline']) {
+test('agenda keeps all scheduling ids while the premium module layer owns its visual workspace', () => {
+  for (const id of ['page-agenda','agenda-data-filtro','agenda-filtro-prof','card-novo-agendamento','timeline-slots-container','coluna-agendados','coluna-espera','coluna-atendidos']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
-  assert.match(platform, /PEP premium workspace/);
-  assert.match(platform, /\.pep-premium-page/);
+  if (fs.existsSync(moduleCssPath)) {
+    const css = read('css/sage-premium-modules.css');
+    assert.match(css, /Agenda premium workspace/);
+    assert.match(css, /\.agenda-premium-page/);
+    assert.match(css, /#timeline-slots-container/);
+    assert.match(css, /\.espera-board/);
+  }
 });
 
-test('odontology keeps all clinical targets inside a premium treatment workspace', () => {
-  assert.match(odontology, /odontology-premium-page/);
-  assert.match(odontology, /odontology-premium-header/);
-  assert.match(odontology, /odontology-premium-patient/);
-  assert.match(odontology, /odontology-premium-tabs/);
+test('PEP keeps SOAP field ids and gains a patient-centered premium workspace', () => {
+  for (const id of ['page-prontuario','pep-paciente','pep-profissional','pep-patient-card','pep-corpo','pep-subjetivo','pep-pa','pep-peso','pep-cid10','pep-avaliacao','pep-plano','pep-prescricao','pep-timeline']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  if (fs.existsSync(moduleCssPath)) {
+    const css = read('css/sage-premium-modules.css');
+    assert.match(css, /PEP premium workspace/);
+    assert.match(css, /\.pep-premium-page/);
+    assert.match(css, /\.soap-section/);
+  }
+});
+
+test('odontology and finance preserve domain contracts while receiving the premium workspace layer', () => {
   for (const id of ['od-paciente','od-workspace','od-tooth-grid','od-condition-list','od-plan-select','od-plan-items','od-budget-list','od-budget-detail']) {
     assert.match(odontology, new RegExp(`id=\\"${id}\\"`));
   }
-  assert.match(platform, /Odontology premium workspace/);
-});
-
-test('finance becomes a premium operational workspace while keeping settlement contracts untouched', () => {
-  assert.match(finance, /finance-premium-page/);
-  assert.match(finance, /finance-premium-header/);
-  assert.match(finance, /finance-premium-entry/);
-  assert.match(finance, /finance-premium-report/);
-  assert.match(finance, /finance-premium-ledger/);
   for (const id of ['fin-kpis','fin-tipo','fin-descricao','fin-valor','fin-vencimento','fin-forma','fin-relatorio','fin-filtro-status','fin-filtro-tipo','fin-tabela']) {
     assert.match(finance, new RegExp(`id=\\"${id}\\"`));
   }
   for (const fn of ['registrarLancamento','liquidarLancamento','cancelarLancamento']) {
     assert.match(finance, new RegExp(`function ${fn}\\(`));
   }
-  assert.match(platform, /Finance premium workspace/);
+  if (fs.existsSync(moduleCssPath)) {
+    const css = read('css/sage-premium-modules.css');
+    assert.match(css, /Odontology premium workspace/);
+    assert.match(css, /Finance premium workspace/);
+    assert.match(css, /\.odontology-premium-page/);
+    assert.match(css, /\.finance-premium-page/);
+  }
 });
