@@ -1,0 +1,397 @@
+/* Administrative operations premium workspace */
+.professionals-premium-page,
+.insurance-premium-page,
+.documents-premium-page,
+.cash-premium-page,
+.payouts-premium-page {
+  max-width: 1540px;
+  margin: 0 auto;
+}
+
+.admin-premium-title {
+  margin: 0 0 18px !important;
+  color: var(--text-primary);
+  letter-spacing: -.035em;
+}
+
+.professionals-premium-page > .card,
+.insurance-premium-page > .card,
+.documents-premium-page > .card,
+.cash-premium-page > .card,
+.payouts-premium-page > .card,
+.insurance-premium-page .insurance-premium-catalogs > .card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  background: rgba(255,255,255,.95);
+  box-shadow: var(--shadow-sm);
+}
+
+.professionals-premium-page .form-group input,
+.professionals-premium-page .form-group select,
+.insurance-premium-page .form-group input,
+.insurance-premium-page .form-group select,
+.documents-premium-page .form-group input,
+.documents-premium-page .form-group select,
+.cash-premium-page .form-group input,
+.cash-premium-page .form-group select,
+.payouts-premium-page .form-group input,
+.payouts-premium-page .form-group select {
+  min-height: 40px;
+  border-radius: 10px;
+}
+
+.professionals-premium-page .form-actions,
+.insurance-premium-page .form-actions,
+.documents-premium-page .form-actions,
+.cash-premium-page .form-actions,
+.payouts-premium-page .form-actions {
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.professionals-premium-page .btn,
+.insurance-premium-page .btn,
+.documents-premium-page .btn,
+.cash-premium-page .btn,
+.payouts-premium-page .btn {
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+/* Professionals */
+.professionals-premium-page .professionals-premium-form {
+  position: relative;
+  padding: 18px !important;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.professionals-premium-page .professionals-premium-form::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--brand-accent);
+}
+
+.professionals-premium-page .professionals-premium-form .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(240px,1.5fr) minmax(180px,1fr) minmax(110px,.55fr) minmax(140px,.65fr) minmax(100px,.45fr);
+  gap: 11px !important;
+  align-items: end;
+}
+
+.professionals-premium-page .professionals-premium-form .form-group {
+  max-width: none !important;
+  min-width: 0;
+}
+
+.professionals-premium-page .professionals-premium-table {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.professionals-premium-page .professionals-premium-table .table-wrapper {
+  border: 0;
+  margin: 0;
+}
+
+.professionals-premium-page .professionals-premium-table table { margin: 0; }
+.professionals-premium-page .professionals-premium-table thead { position: sticky; top: 0; z-index: 2; }
+.professionals-premium-page #tabela-profissionais td:nth-child(2) { font-weight: 680; }
+.professionals-premium-page #tabela-profissionais td:last-child { color: var(--brand-primary-dark); font-weight: 700; }
+
+/* Insurance and procedures */
+.insurance-premium-page.active {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.insurance-premium-page > .admin-premium-title,
+.insurance-premium-page > .insurance-premium-catalogs {
+  grid-column: 1 / -1;
+}
+
+.insurance-premium-page > .admin-premium-title { margin-bottom: 4px !important; }
+
+.insurance-premium-page .insurance-premium-form,
+.insurance-premium-page .procedures-premium-form {
+  min-height: 190px;
+  padding: 18px !important;
+  margin: 0 !important;
+}
+
+.insurance-premium-page .insurance-premium-form {
+  border-top: 3px solid var(--brand-accent);
+}
+
+.insurance-premium-page .procedures-premium-form {
+  border-top: 3px solid #a9b5a8;
+}
+
+.insurance-premium-page .insurance-premium-form .card-title,
+.insurance-premium-page .procedures-premium-form .card-title,
+.insurance-premium-page .insurance-premium-catalogs .card-title {
+  margin-bottom: 13px;
+  font-size: 14px;
+  letter-spacing: -.015em;
+}
+
+.insurance-premium-page .insurance-premium-form .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(180px,1.3fr) minmax(100px,.55fr) minmax(130px,.65fr) minmax(160px,1fr);
+  gap: 10px !important;
+}
+
+.insurance-premium-page .procedures-premium-form .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(220px,1fr) minmax(150px,.35fr);
+  gap: 10px !important;
+}
+
+.insurance-premium-page .insurance-premium-form .form-group,
+.insurance-premium-page .procedures-premium-form .form-group {
+  max-width: none !important;
+  min-width: 0;
+}
+
+.insurance-premium-page .insurance-premium-catalogs {
+  display: grid !important;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px !important;
+  margin: 0 !important;
+}
+
+.insurance-premium-page .insurance-premium-catalogs > .card {
+  min-width: 0;
+  padding: 16px !important;
+}
+
+.insurance-premium-page .insurance-premium-catalogs .table-wrapper {
+  max-height: 440px;
+  overflow: auto;
+  border: 1px solid #e6e8e2;
+  border-radius: 12px;
+}
+
+.insurance-premium-page .insurance-premium-catalogs table { margin: 0; }
+.insurance-premium-page #tabela-convenios td:nth-child(2),
+.insurance-premium-page #tabela-procedimentos td:nth-child(2) { font-weight: 680; }
+.insurance-premium-page #tabela-procedimentos td:last-child { color: var(--brand-primary-dark); font-weight: 720; }
+
+/* Documents */
+.documents-premium-page .documents-premium-toolbar {
+  padding: 17px 18px !important;
+  margin-bottom: 14px;
+  border-top: 3px solid var(--brand-accent);
+}
+
+.documents-premium-page .documents-premium-toolbar .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(190px,.9fr) minmax(220px,1.2fr) minmax(220px,1fr);
+  gap: 10px !important;
+}
+
+.documents-premium-page .documents-premium-toolbar .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.documents-premium-page .documents-premium-editor-card {
+  padding: 16px !important;
+}
+
+.documents-premium-page .documents-premium-editor-card > div:first-child {
+  min-height: 34px;
+  padding-bottom: 9px;
+  margin-bottom: 10px !important;
+  border-bottom: 1px solid #e8e9e4;
+}
+
+.documents-premium-page .documents-premium-editor {
+  width: 100%;
+  min-height: 520px !important;
+  padding: 24px 28px !important;
+  border: 1px solid #dfe2dc !important;
+  border-radius: 14px !important;
+  background: #fffefb !important;
+  color: #303732 !important;
+  box-shadow: inset 0 1px 3px rgba(53,72,60,.04);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.documents-premium-page .documents-premium-editor:focus {
+  border-color: var(--brand-accent) !important;
+  box-shadow: var(--shadow-focus) !important;
+  outline: 0;
+}
+
+/* Cash */
+.cash-premium-page .cash-premium-summary {
+  display: grid !important;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px !important;
+  margin-bottom: 14px;
+}
+
+.cash-premium-page .cash-premium-summary .stat-card {
+  min-height: 104px;
+  padding: 17px !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 17px !important;
+  background: rgba(255,255,255,.95) !important;
+  box-shadow: var(--shadow-sm) !important;
+  color: var(--text-primary) !important;
+}
+
+.cash-premium-page .cash-premium-summary .stat-card::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 3px;
+  margin-bottom: 13px;
+  border-radius: 999px;
+  background: var(--brand-accent);
+}
+
+.cash-premium-page .cash-premium-summary .stat-card.pink::before { background: #b96b64; }
+.cash-premium-page .cash-premium-summary .stat-card.blue::before { background: var(--brand-primary-dark); }
+.cash-premium-page .cash-premium-summary .label {
+  color: var(--text-secondary) !important;
+  font-size: 10px !important;
+  font-weight: 760;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.cash-premium-page .cash-premium-summary .value {
+  margin-top: 6px;
+  color: var(--brand-primary-dark) !important;
+  font-size: 24px !important;
+  letter-spacing: -.03em;
+}
+
+.cash-premium-page .cash-premium-entry {
+  padding: 17px 18px !important;
+  margin-bottom: 14px;
+  border-top: 3px solid var(--brand-accent);
+}
+
+.cash-premium-page .cash-premium-entry .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(120px,.45fr) minmax(240px,1.5fr) minmax(130px,.5fr) minmax(150px,.6fr);
+  gap: 10px !important;
+}
+
+.cash-premium-page .cash-premium-entry .form-group { max-width: none !important; min-width: 0; }
+
+.cash-premium-page .cash-premium-ledger {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.cash-premium-page .cash-premium-ledger .table-wrapper { border: 0; }
+.cash-premium-page .cash-premium-ledger table { margin: 0; }
+.cash-premium-page #tabela-caixa td:nth-child(4) { font-weight: 650; }
+.cash-premium-page #tabela-caixa td:nth-child(5) { font-weight: 740; color: var(--brand-primary-dark); }
+
+/* Payouts */
+.payouts-premium-page .payouts-premium-entry {
+  padding: 18px !important;
+  margin-bottom: 14px;
+  border-top: 3px solid var(--brand-accent);
+}
+
+.payouts-premium-page .payouts-premium-entry .form-row {
+  display: grid !important;
+  grid-template-columns: minmax(220px,1.2fr) repeat(2,minmax(125px,.55fr)) minmax(150px,.6fr) minmax(100px,.4fr);
+  gap: 10px !important;
+  align-items: end;
+}
+
+.payouts-premium-page .payouts-premium-entry .form-group { max-width: none !important; min-width: 0; }
+
+.payouts-premium-page .payouts-premium-ledger {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.payouts-premium-page .payouts-premium-ledger .table-wrapper {
+  border: 0;
+  overflow: auto;
+}
+
+.payouts-premium-page .payouts-premium-ledger table { margin: 0; }
+.payouts-premium-page #tabela-repasses td:nth-child(2) { font-weight: 680; }
+.payouts-premium-page #tabela-repasses td:nth-child(6) { color: var(--brand-primary-dark); font-weight: 760; }
+
+/* Shared tables and surface polish */
+.professionals-premium-page .table-wrapper,
+.insurance-premium-page .table-wrapper,
+.cash-premium-page .table-wrapper,
+.payouts-premium-page .table-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #c8cec7 transparent;
+}
+
+.professionals-premium-page thead,
+.insurance-premium-page thead,
+.cash-premium-page thead,
+.payouts-premium-page thead {
+  background: #eef1eb;
+}
+
+.professionals-premium-page tbody tr:hover,
+.insurance-premium-page tbody tr:hover,
+.cash-premium-page tbody tr:hover,
+.payouts-premium-page tbody tr:hover {
+  background: #f5f7f2;
+}
+
+@media (max-width: 1180px) {
+  .professionals-premium-page .professionals-premium-form .form-row {
+    grid-template-columns: repeat(3,minmax(150px,1fr));
+  }
+
+  .insurance-premium-page .insurance-premium-form .form-row {
+    grid-template-columns: repeat(2,minmax(160px,1fr));
+  }
+
+  .payouts-premium-page .payouts-premium-entry .form-row {
+    grid-template-columns: repeat(3,minmax(140px,1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .insurance-premium-page.active { grid-template-columns: 1fr; }
+  .insurance-premium-page > .insurance-premium-catalogs { grid-column: 1; }
+  .insurance-premium-page .insurance-premium-catalogs { grid-template-columns: 1fr; }
+
+  .documents-premium-page .documents-premium-toolbar .form-row,
+  .cash-premium-page .cash-premium-entry .form-row {
+    grid-template-columns: repeat(2,minmax(160px,1fr));
+  }
+
+  .cash-premium-page .cash-premium-summary { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .professionals-premium-page .professionals-premium-form .form-row,
+  .insurance-premium-page .insurance-premium-form .form-row,
+  .insurance-premium-page .procedures-premium-form .form-row,
+  .documents-premium-page .documents-premium-toolbar .form-row,
+  .cash-premium-page .cash-premium-entry .form-row,
+  .payouts-premium-page .payouts-premium-entry .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .documents-premium-page .documents-premium-editor { min-height: 420px !important; padding: 18px !important; }
+  .documents-premium-page .documents-premium-toolbar .form-actions { align-items: stretch; flex-direction: column; }
+  .documents-premium-page .documents-premium-toolbar .form-actions .btn { width: 100%; }
+}
