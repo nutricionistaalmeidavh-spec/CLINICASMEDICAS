@@ -9,6 +9,8 @@ const shell = read('js/core/shell.js');
 const formUx = read('js/core/form-ux.js');
 const app = read('js/app.js');
 const agenda = read('js/domains/agenda.js');
+const dashboard = read('js/domains/dashboard.js');
+const dashboardIsolation = read('js/domains/dashboard-role-isolation.js');
 const workspace = read('js/domains/patient-workspace.js');
 const pep = read('js/domains/pep.js');
 const platform = read('css/platform.css');
@@ -51,6 +53,17 @@ test('navigation emojis are replaced at runtime by Lucide-style inline svg icons
   assert.match(shell, /<svg/);
   assert.match(shell, /stroke="currentColor"/);
   assert.match(shell, /aria-hidden="true"/);
+});
+
+test('dashboard prioritizes agenda, waiting, clinical pending and permitted returns before management metrics', () => {
+  assert.match(dashboard, /Agenda de hoje/);
+  assert.match(dashboard, /Pacientes em espera/);
+  assert.match(dashboard, /Pendências clínicas/);
+  assert.match(dashboard, /dashboard-section-label">Indicadores/);
+  assert.match(dashboardIsolation, /ensureReturnsPriority/);
+  assert.match(dashboardIsolation, /Retornos pendentes/);
+  assert.match(dashboardIsolation, /canNavigateToPage\?\.\(role, 'crm'\)/);
+  assert.match(dashboardIsolation, /insertAdjacentElement\('afterend', item\)/);
 });
 
 test('agenda patient name opens an in-place patient sheet without changing agenda filters', () => {
