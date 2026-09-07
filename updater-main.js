@@ -4,10 +4,12 @@ const { createUpdaterService } = require('./js/core/updater-service');
 const { installDesktopDataHardening } = require('./js/core/desktop-data-hardening');
 const { installRestoreRollback } = require('./js/core/restore-rollback');
 const { installLocalDataIsolation } = require('./js/core/local-data-isolation-main');
+const { installClinicHub } = require('./js/core/clinic-network-main');
 
 // Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
-installLocalDataIsolation({ app, ipcMain, safeStorage });
+const isolationService = installLocalDataIsolation({ app, ipcMain, safeStorage });
+installClinicHub({ app, ipcMain, safeStorage, isolationService, logger: console });
 installDesktopDataHardening();
 installRestoreRollback();
 
