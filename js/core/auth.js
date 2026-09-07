@@ -19,12 +19,7 @@
     return true;
   }
 
-  async function fazerLogin() {
-    if (!root.DB || !root.DB.isReady()) return alert('Banco de dados ainda não está pronto. Aguarde ou recarregue (Ctrl+R).');
-    const user = document.getElementById('login-user').value.trim();
-    const pass = document.getElementById('login-pass').value.trim();
-    if (!user || !pass) return alert('Preencha usuário e senha.');
-
+  async function authenticateInRenderer(user, pass) {
     const rows = root.DB.query('SELECT * FROM usuarios WHERE usuario=? AND ativo=1', [user]);
     if (rows.length && rows[0].senha === pass) {
       root.DB.run('UPDATE usuarios SET senha=? WHERE id=?', [await root.hashPassword(pass), rows[0].id]);
@@ -32,18 +27,45 @@
     }
     const passwordHash = await root.hashPassword(pass);
     if (rows.length && rows[0].senha !== passwordHash) rows.length = 0;
-    if (rows.length === 0) return alert('Usuário ou senha inválidos.');
-    if (!(await requireDefaultPasswordReplacement(rows[0], pass))) return;
+    if (!rows.length) return { ok: false, error: 'Usuário ou senha inválidos.' };
+    return { ok: true, user: rows[0], session: null };
+  }
 
-    currentUser = rows[0];
+  async function authenticateLocally(user, pass) {
+    const isolationApi = root.electronAPI?.dataIsolation;
+    if (!isolationApi?.authenticate) return authenticateInRenderer(user, pass);
+    const result = await isolationApi.authenticate({ username: user, password: pass });
+    if (!result?.ok) return result || { ok: false, error: 'Usuário ou senha inválidos.' };
+    try {
+      if (root.DB?.activateSession && result.session) await root.DB.activateSession(result.session);
+      const row = root.DB.query('SELECT * FROM usuarios WHERE id=?', [result.user.id])[0];
+      return { ok: true, user: row || result.user, session: result.session };
+    } catch (error) {
+      if (result.session?.token) await isolationApi.endSession?.(result.session.token).catch(() => {});
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async function fazerLogin() {
+    if (!root.DB || !root.DB.isReady()) return alert('Banco de dados ainda não está pronto. Aguarde ou recarregue (Ctrl+R).');
+    const user = document.getElementById('login-user').value.trim();
+    const pass = document.getElementById('login-pass').value.trim();
+    if (!user || !pass) return alert('Preencha usuário e senha.');
+
+    const authentication = await authenticateLocally(user, pass);
+    if (!authentication?.ok) return alert(authentication?.error || 'Usuário ou senha inválidos.');
+    if (!(await requireDefaultPasswordReplacement(authentication.user, pass))) {
+      if (root.DB?.deactivateSession) await root.DB.deactivateSession();
+      return;
+    }
+
+    currentUser = authentication.user;
     const nivel = currentUser.nivel || 'admin';
     const role = root.PlennusAccessControl.getRoleMeta(nivel);
 
     document.getElementById('user-display').textContent = `Olá, ${currentUser.nome}`;
     const badgeEl = document.getElementById('user-role-badge');
-    if (badgeEl) {
-      badgeEl.innerHTML = `<span class="badge-role ${role.className}">${role.label}</span>`;
-    }
+    if (badgeEl) badgeEl.innerHTML = `<span class="badge-role ${role.className}">${role.label}</span>`;
 
     aplicarPermissoesMenu(nivel);
     document.getElementById('login-screen').style.display = 'none';
@@ -53,7 +75,9 @@
 
   function aplicarPermissoesMenu(nivel) {
     document.querySelectorAll('.menu-item').forEach(item => {
-      item.style.display = root.PlennusAccessControl.canViewMenuItem(nivel, item.dataset.roles) ? 'flex' : 'none';
+      const roleAllowed = root.PlennusAccessControl.canViewMenuItem(nivel, item.dataset.roles);
+      const pageAllowed = !item.dataset.page || root.PlennusAccessControl.canNavigateToPage(nivel, item.dataset.page);
+      item.style.display = roleAllowed && pageAllowed ? 'flex' : 'none';
     });
 
     const userManageCard = document.getElementById('card-usuarios-gestao');
@@ -68,8 +92,11 @@
     if (returnsPanel) returnsPanel.style.display = canOpenCrm ? '' : 'none';
   }
 
-  function fazerLogout() {
-    if (confirm('Deseja realmente sair?')) {
+  async function fazerLogout() {
+    if (!confirm('Deseja realmente sair?')) return;
+    try {
+      if (root.DB?.deactivateSession) await root.DB.deactivateSession();
+    } finally {
       currentUser = null;
       document.getElementById('login-pass').value = '';
       document.getElementById('app-screen').style.display = 'none';
