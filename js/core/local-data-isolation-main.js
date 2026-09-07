@@ -17,9 +17,7 @@ function sanitizeSegment(value) {
 }
 
 function validateDatabaseArray(data) {
-  if (!Array.isArray(data) || data.length === 0 || data.length > MAX_DATABASE_BYTES) {
-    throw new Error('Conteúdo de banco local inválido.');
-  }
+  if (!Array.isArray(data) || data.length === 0 || data.length > MAX_DATABASE_BYTES) throw new Error('Conteúdo de banco local inválido.');
   for (let index = 0; index < Math.min(data.length, 64); index += 1) {
     const value = data[index];
     if (!Number.isInteger(value) || value < 0 || value > 255) throw new Error('Conteúdo de banco local inválido.');
@@ -32,30 +30,15 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
   const sessions = new Map();
   let SQLPromise = null;
 
-  function dataRoot() {
-    return path.join(app.getPath('userData'), 'data');
-  }
-
-  function clinicDirectory() {
-    return path.join(dataRoot(), 'clinic');
-  }
-
-  function clinicPath() {
-    return path.join(clinicDirectory(), 'clinic.db.enc');
-  }
-
-  function legacyPath() {
-    return path.join(app.getPath('userData'), 'plennus-clinic.db.enc');
-  }
-
+  function dataRoot() { return path.join(app.getPath('userData'), 'data'); }
+  function clinicDirectory() { return path.join(dataRoot(), 'clinic'); }
+  function clinicPath() { return path.join(clinicDirectory(), 'clinic.db.enc'); }
+  function legacyPath() { return path.join(app.getPath('userData'), 'plennus-clinic.db.enc'); }
   function professionalDirectory(session) {
     const identity = sanitizeSegment(session.professionalUid || `id-${session.professionalId}`);
     return path.join(dataRoot(), 'professionals', identity);
   }
-
-  function professionalPath(session) {
-    return path.join(professionalDirectory(session), 'clinical.db.enc');
-  }
+  function professionalPath(session) { return path.join(professionalDirectory(session), 'clinical.db.enc'); }
 
   function ensureEncryption() {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema operacional indisponível.');
@@ -68,16 +51,14 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     if (!fs.existsSync(source)) return;
     fs.mkdirSync(clinicDirectory(), { recursive: true });
     fs.copyFileSync(source, target);
-    try { fs.chmodSync(target, 0o600); } catch (_) { /* Windows pode ignorar chmod */ }
+    try { fs.chmodSync(target, 0o600); } catch (_) { /* Windows */ }
   }
 
   function readEncryptedDatabase(filePath) {
     if (!fs.existsSync(filePath)) return null;
     ensureEncryption();
     const stat = fs.statSync(filePath);
-    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_DATABASE_BYTES * 6) {
-      throw new Error('Arquivo de banco local inválido.');
-    }
+    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_DATABASE_BYTES * 6) throw new Error('Arquivo de banco local inválido.');
     const encrypted = fs.readFileSync(filePath);
     const data = JSON.parse(safeStorage.decryptString(encrypted));
     return validateDatabaseArray(data);
@@ -91,7 +72,7 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     const temp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
     fs.writeFileSync(temp, encrypted, { mode: 0o600 });
     fs.renameSync(temp, filePath);
-    try { fs.chmodSync(filePath, 0o600); } catch (_) { /* Windows pode ignorar chmod */ }
+    try { fs.chmodSync(filePath, 0o600); } catch (_) { /* Windows */ }
     return { ok: true };
   }
 
@@ -100,11 +81,67 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     return SQLPromise;
   }
 
+  function readClinicBytes() {
+    ensureClinicCanonicalCopy();
+    return readEncryptedDatabase(clinicPath());
+  }
+
+  function writeClinicBytes(data) {
+    return writeEncryptedDatabase(clinicPath(), data);
+  }
+
+  async function getClinicUid() {
+    const bytes = readClinicBytes();
+    if (!bytes) return null;
+    const SQL = await getSQL();
+    const database = new SQL.Database(new Uint8Array(bytes));
+    try {
+      const stmt = database.prepare("SELECT valor FROM configuracoes WHERE chave='clinic_uid' LIMIT 1");
+      const value = stmt.step() ? stmt.getAsObject().valor : null;
+      stmt.free();
+      return value ? String(value) : null;
+    } catch (_) { return null; }
+    finally { database.close(); }
+  }
+
+  function createSession(identity, senderId) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const session = {
+      token,
+      userId: Number(identity.userId),
+      role: identity.role || 'admin',
+      professionalId: identity.professionalId ? Number(identity.professionalId) : null,
+      professionalUid: identity.professionalUid || null,
+      senderId,
+      createdAt: Date.now(),
+      lastSeenAt: Date.now()
+    };
+    sessions.set(token, session);
+    return session;
+  }
+
+  function createNetworkProfessionalSession(user, senderId) {
+    if (!user || user.nivel !== 'medico' || !Number(user.profissional_id) || !user.professional_uid) {
+      throw new Error('Identidade profissional de rede inválida.');
+    }
+    const session = createSession({
+      userId: user.id,
+      role: 'medico',
+      professionalId: user.profissional_id,
+      professionalUid: user.professional_uid
+    }, senderId);
+    return {
+      token: session.token,
+      userId: session.userId,
+      role: session.role,
+      professionalId: session.professionalId,
+      professionalUid: session.professionalUid
+    };
+  }
+
   function pruneExpiredSessions() {
     const now = Date.now();
-    for (const [token, session] of sessions.entries()) {
-      if (now - session.lastSeenAt > SESSION_TTL_MS) sessions.delete(token);
-    }
+    for (const [token, session] of sessions.entries()) if (now - session.lastSeenAt > SESSION_TTL_MS) sessions.delete(token);
   }
 
   function requireSession(event, token, { professional = false } = {}) {
@@ -112,16 +149,13 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     const session = sessions.get(String(token || ''));
     if (!session) throw new Error('Sessão local expirada ou inválida.');
     if (session.senderId !== event.sender.id) throw new Error('Sessão local não pertence a esta janela.');
-    if (professional && (session.role !== 'medico' || !session.professionalId)) {
-      throw new Error('Sessão sem acesso a banco clínico profissional.');
-    }
+    if (professional && (session.role !== 'medico' || !session.professionalId)) throw new Error('Sessão sem acesso a banco clínico profissional.');
     session.lastSeenAt = Date.now();
     return session;
   }
 
   async function authenticateUser(username, password, senderId) {
-    ensureClinicCanonicalCopy();
-    const bytes = readEncryptedDatabase(clinicPath());
+    const bytes = readClinicBytes();
     if (!bytes) return { ok: false, error: 'Banco da clínica ainda não foi inicializado.' };
     const SQL = await getSQL();
     const database = new SQL.Database(new Uint8Array(bytes));
@@ -129,9 +163,7 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
       let rows;
       try {
         const stmt = database.prepare(`SELECT u.id,u.nome,u.usuario,u.senha,u.nivel,u.ativo,u.profissional_id,
-          p.uid AS professional_uid
-          FROM usuarios u
-          LEFT JOIN profissionais p ON p.id=u.profissional_id
+          p.uid AS professional_uid FROM usuarios u LEFT JOIN profissionais p ON p.id=u.profissional_id
           WHERE u.usuario=? AND u.ativo=1 LIMIT 1`);
         stmt.bind([String(username || '').trim()]);
         rows = stmt.step() ? stmt.getAsObject() : null;
@@ -144,113 +176,47 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
         stmt.free();
       }
       if (!rows) return { ok: false, error: 'Usuário ou senha inválidos.' };
-
       const supplied = String(password || '');
       const stored = String(rows.senha || '');
       const suppliedHash = hashPassword(supplied);
-      const passwordOk = stored === suppliedHash || stored === supplied;
-      if (!passwordOk) return { ok: false, error: 'Usuário ou senha inválidos.' };
-
+      if (stored !== suppliedHash && stored !== supplied) return { ok: false, error: 'Usuário ou senha inválidos.' };
       if (stored === supplied && stored !== suppliedHash) {
         database.run('UPDATE usuarios SET senha=? WHERE id=?', [suppliedHash, rows.id]);
-        writeEncryptedDatabase(clinicPath(), Array.from(database.export()));
+        writeClinicBytes(Array.from(database.export()));
       }
-
-      if (rows.nivel === 'medico' && !Number(rows.profissional_id)) {
-        return { ok: false, error: 'Este usuário profissional ainda não está vinculado a um cadastro de profissional.' };
-      }
-
-      const token = crypto.randomBytes(32).toString('hex');
-      const session = {
-        token,
-        userId: Number(rows.id),
-        role: rows.nivel || 'admin',
-        professionalId: rows.profissional_id ? Number(rows.profissional_id) : null,
-        professionalUid: rows.professional_uid || null,
-        senderId,
-        createdAt: Date.now(),
-        lastSeenAt: Date.now()
-      };
-      sessions.set(token, session);
+      if (rows.nivel === 'medico' && !Number(rows.profissional_id)) return { ok: false, error: 'Este usuário profissional ainda não está vinculado a um cadastro de profissional.' };
+      const session = createSession({ userId: rows.id, role: rows.nivel, professionalId: rows.profissional_id, professionalUid: rows.professional_uid }, senderId);
       return {
         ok: true,
-        user: {
-          id: Number(rows.id),
-          nome: rows.nome,
-          usuario: rows.usuario,
-          nivel: session.role,
-          profissional_id: session.professionalId,
-          ativo: Number(rows.ativo)
-        },
-        session: {
-          token,
-          userId: session.userId,
-          role: session.role,
-          professionalId: session.professionalId,
-          professionalUid: session.professionalUid
-        }
+        user: { id: Number(rows.id), nome: rows.nome, usuario: rows.usuario, nivel: session.role, profissional_id: session.professionalId, ativo: Number(rows.ativo) },
+        session: { token: session.token, userId: session.userId, role: session.role, professionalId: session.professionalId, professionalUid: session.professionalUid }
       };
-    } finally {
-      database.close();
-    }
+    } finally { database.close(); }
   }
 
   ipcMain.handle('data-isolation:load-clinic', () => {
-    try {
-      ensureClinicCanonicalCopy();
-      return { ok: true, data: readEncryptedDatabase(clinicPath()) };
-    } catch (error) {
-      logger.error('Falha ao carregar clinic.db:', error);
-      return { ok: false, error: error.message };
-    }
+    try { return { ok: true, data: readClinicBytes() }; }
+    catch (error) { logger.error('Falha ao carregar clinic.db:', error); return { ok: false, error: error.message }; }
   });
-
   ipcMain.handle('data-isolation:save-clinic', (_event, data) => {
-    try {
-      return writeEncryptedDatabase(clinicPath(), data);
-    } catch (error) {
-      logger.error('Falha ao salvar clinic.db:', error);
-      return { ok: false, error: error.message };
-    }
+    try { return writeClinicBytes(data); }
+    catch (error) { logger.error('Falha ao salvar clinic.db:', error); return { ok: false, error: error.message }; }
   });
-
   ipcMain.handle('data-isolation:authenticate', async (event, credentials = {}) => {
-    try {
-      return await authenticateUser(credentials.username, credentials.password, event.sender.id);
-    } catch (error) {
-      logger.error('Falha na autenticação local:', error);
-      return { ok: false, error: error.message };
-    }
+    try { return await authenticateUser(credentials.username, credentials.password, event.sender.id); }
+    catch (error) { logger.error('Falha na autenticação local:', error); return { ok: false, error: error.message }; }
   });
-
   ipcMain.handle('data-isolation:load-professional', (event, token) => {
-    try {
-      const session = requireSession(event, token, { professional: true });
-      return { ok: true, data: readEncryptedDatabase(professionalPath(session)) };
-    } catch (error) {
-      logger.warn('Banco profissional recusado:', error.message);
-      return { ok: false, error: error.message };
-    }
+    try { const session = requireSession(event, token, { professional: true }); return { ok: true, data: readEncryptedDatabase(professionalPath(session)) }; }
+    catch (error) { logger.warn('Banco profissional recusado:', error.message); return { ok: false, error: error.message }; }
   });
-
   ipcMain.handle('data-isolation:save-professional', (event, token, data) => {
-    try {
-      const session = requireSession(event, token, { professional: true });
-      return writeEncryptedDatabase(professionalPath(session), data);
-    } catch (error) {
-      logger.warn('Persistência profissional recusada:', error.message);
-      return { ok: false, error: error.message };
-    }
+    try { const session = requireSession(event, token, { professional: true }); return writeEncryptedDatabase(professionalPath(session), data); }
+    catch (error) { logger.warn('Persistência profissional recusada:', error.message); return { ok: false, error: error.message }; }
   });
-
   ipcMain.handle('data-isolation:end-session', (event, token) => {
-    try {
-      const session = requireSession(event, token);
-      sessions.delete(session.token);
-      return { ok: true };
-    } catch (_) {
-      return { ok: true };
-    }
+    try { const session = requireSession(event, token); sessions.delete(session.token); return { ok: true }; }
+    catch (_) { return { ok: true }; }
   });
 
   return {
@@ -258,15 +224,12 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     professionalPath,
     hashPassword,
     sanitizeSegment,
-    sessions
+    sessions,
+    readClinicBytes,
+    writeClinicBytes,
+    getClinicUid,
+    createNetworkProfessionalSession
   };
 }
 
-module.exports = {
-  MAX_DATABASE_BYTES,
-  SESSION_TTL_MS,
-  hashPassword,
-  sanitizeSegment,
-  validateDatabaseArray,
-  installLocalDataIsolation
-};
+module.exports = { MAX_DATABASE_BYTES, SESSION_TTL_MS, hashPassword, sanitizeSegment, validateDatabaseArray, installLocalDataIsolation };
