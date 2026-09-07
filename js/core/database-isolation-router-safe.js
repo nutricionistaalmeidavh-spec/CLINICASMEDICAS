@@ -208,6 +208,25 @@
     return { ok: true, tables: allowed };
   }
 
+  async function reloadCanonicalClinic() {
+    const api = desktopIsolationApi();
+    if (!api?.loadClinic) throw new Error('Banco canônico da clínica indisponível.');
+    const loaded = await api.loadClinic();
+    if (loaded?.ok === false) throw new Error(loaded.error || 'Não foi possível recarregar clinic.db');
+    if (!Array.isArray(loaded?.data) || !loaded.data.length) throw new Error('clinic.db canônico está vazio.');
+
+    // O Hub já persistiu a mutação. Recarregamos o estado validado em memória em vez de
+    // executar o comando novamente, evitando duplicidade de inserts e divergência de writers.
+    await clinicStore.restoreValidated(loaded.data);
+    isolation.ensureIsolationSchema(clinicAdapter());
+    await queueClinicSave();
+    if (professionalDb) {
+      refreshSharedMirrors();
+      await queueProfessionalSave();
+    }
+    return { ok: true };
+  }
+
   function setNetworkClientMode(enabled) {
     networkClientMode = Boolean(enabled);
     return networkClientMode;
@@ -289,6 +308,7 @@
   dbApi.activateSession = activateSession;
   dbApi.deactivateSession = deactivateSession;
   dbApi.syncSharedSnapshot = syncSharedSnapshot;
+  dbApi.reloadCanonicalClinic = reloadCanonicalClinic;
   dbApi.setNetworkClientMode = setNetworkClientMode;
   dbApi.isNetworkClientMode = () => networkClientMode;
   dbApi.session = () => accessSession ? { ...accessSession } : null;
