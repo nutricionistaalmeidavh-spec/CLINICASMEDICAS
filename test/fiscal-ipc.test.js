@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const fiscalMainPath = path.join(__dirname, '..', 'js/modules/fiscal/fiscal-main.js');
 const preloadPath = path.join(__dirname, '..', 'preload.js');
-const mainPath = path.join(__dirname, '..', 'main.js');
+const desktopMainPath = path.join(__dirname, '..', 'updater-main.js');
 
 const fiscalMainExists = fs.existsSync(fiscalMainPath);
 
@@ -16,7 +16,7 @@ test('fiscal main module exists', () => {
 if (fiscalMainExists) {
   const source = fs.readFileSync(fiscalMainPath, 'utf8');
   const preload = fs.readFileSync(preloadPath, 'utf8');
-  const main = fs.readFileSync(mainPath, 'utf8');
+  const desktopMain = fs.readFileSync(desktopMainPath, 'utf8');
 
   test('fiscal credentials are protected by Electron safeStorage and dedicated encrypted file', () => {
     assert.match(source, /safeStorage/);
@@ -33,8 +33,8 @@ if (fiscalMainExists) {
     }
   });
 
-  test('fiscal IPC is registered by main process', () => {
-    assert.match(main, /registerFiscalIpc/);
+  test('fiscal IPC is registered by desktop main process', () => {
+    assert.match(desktopMain, /registerFiscalIpc/);
     assert.match(source, /fiscal:status/);
     assert.match(source, /fiscal:save-connection/);
     assert.match(source, /fiscal:emit/);
