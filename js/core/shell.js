@@ -23,6 +23,7 @@
     appendStylesheet('link[data-plennus-odontology]', 'css/odontology.css', 'plennusOdontology');
     appendStylesheet('link[data-plennus-sage-modules]', 'css/sage-premium-modules.css', 'plennusSageModules');
     appendStylesheet('link[data-plennus-sage-admin]', 'css/sage-premium-admin.css', 'plennusSageAdmin');
+    appendStylesheet('link[data-plennus-sage-final]', 'css/sage-premium-final.css', 'plennusSageFinal');
   }
 
   function addClass(target, className) {
@@ -80,6 +81,68 @@
     }
   }
 
+  function applyFinalPremiumClasses() {
+    const inventory = document.getElementById('page-estoque');
+    if (inventory) {
+      addClass(inventory, 'inventory-premium-page');
+      addClass(inventory.querySelector('.page-heading-row'), 'final-premium-header');
+      addClass(inventory.querySelector('#estoque-kpis'), 'final-premium-kpis');
+      const grids = inventory.querySelectorAll('.operations-grid-2');
+      addClass(grids[0], 'inventory-premium-grid');
+      addClass(grids[1], 'inventory-premium-secondary');
+      const cards = inventory.querySelectorAll(':scope > .card');
+      addClass(cards[cards.length - 1], 'inventory-premium-ledger');
+    }
+
+    const crm = document.getElementById('page-crm');
+    if (crm) {
+      addClass(crm, 'crm-premium-page');
+      addClass(crm.querySelector('.page-heading-row'), 'final-premium-header');
+      addClass(crm.querySelector('#crm-kpis'), 'final-premium-kpis');
+      const directCards = crm.querySelectorAll(':scope > .card');
+      addClass(directCards[0], 'crm-premium-journey');
+      addClass(crm.querySelector('.operations-grid-2'), 'crm-premium-grid');
+      addClass(crm.querySelector('#crm-historico')?.closest('.card'), 'crm-premium-history');
+    }
+
+    const whatsapp = document.getElementById('page-whatsapp');
+    if (whatsapp) {
+      addClass(whatsapp, 'whatsapp-premium-page');
+      addClass(whatsapp.querySelector('.page-heading-row'), 'final-premium-header');
+      addClass(whatsapp.querySelector('#wpp-kpis'), 'final-premium-kpis');
+      const cards = whatsapp.querySelectorAll(':scope > .card');
+      addClass(cards[cards.length - 1], 'whatsapp-premium-queue');
+    }
+
+    const settings = document.getElementById('page-configuracoes');
+    if (settings) {
+      addClass(settings, 'settings-premium-page');
+      addClass(settings, 'settings-premium-grid');
+      addClass(settings.querySelector('.page-title'), 'final-premium-title');
+      addClass(settings.querySelector('[onclick="salvarConfig()"]')?.closest('.card'), 'settings-premium-identity');
+      addClass(settings.querySelector('#card-usuarios-gestao'), 'settings-premium-users');
+      addClass(settings.querySelector('[onclick="alterarSenha()"]')?.closest('.card'), 'settings-premium-security');
+      addClass(settings.querySelector('[onclick="fazerBackup()"]')?.closest('.card'), 'settings-premium-backup');
+    }
+
+    const importer = document.getElementById('page-importar');
+    if (importer) {
+      addClass(importer, 'import-premium-page');
+      addClass(importer.querySelector('.page-heading-row'), 'final-premium-header');
+      const cards = importer.querySelectorAll(':scope > .card');
+      addClass(cards[0], 'import-premium-dropzone');
+      addClass(importer.querySelector('#import-preview-card'), 'import-premium-preview');
+    }
+
+    const audit = document.getElementById('page-auditoria');
+    if (audit) {
+      addClass(audit, 'audit-premium-page');
+      addClass(audit.querySelector('.page-heading-row'), 'final-premium-header');
+      const cards = audit.querySelectorAll(':scope > .card');
+      addClass(cards[cards.length - 1], 'audit-premium-ledger');
+    }
+  }
+
   function applyPremiumModuleClasses() {
     const agenda = document.getElementById('page-agenda');
     if (agenda) {
@@ -120,6 +183,7 @@
     }
 
     applyAdministrativePremiumClasses();
+    applyFinalPremiumClasses();
   }
 
   function observePremiumModules() {
@@ -196,6 +260,7 @@
 
   root.PlennusShell = {
     PAGE_TITLES, ensureStylesheet, ensureShellTopbar, applyPremiumModuleClasses,
-    applyAdministrativePremiumClasses, syncShellIdentity, setPageTitle, setupShell
+    applyAdministrativePremiumClasses, applyFinalPremiumClasses,
+    syncShellIdentity, setPageTitle, setupShell
   };
 })(typeof window !== 'undefined' ? window : globalThis);
