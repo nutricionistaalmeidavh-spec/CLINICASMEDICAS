@@ -60,7 +60,7 @@
       </div>
       <div class="card fiscal-profile-card">
         <div class="card-title">Perfil fiscal da clínica</div>
-        <p class="text-muted">Preencha conforme orientação da sua contabilidade. O Plennus não escolhe códigos tributários nem alíquotas automaticamente.</p>
+        <p class="text-muted">Preencha conforme orientação da sua contabilidade. O sistema não escolhe códigos tributários nem alíquotas automaticamente.</p>
         <div class="form-row">
           <div class="form-group"><label>CNPJ do prestador</label><input data-fiscal-profile="cnpjPrestador" placeholder="00.000.000/0001-00"></div>
           <div class="form-group"><label>Inscrição municipal</label><input data-fiscal-profile="inscricaoMunicipal"></div>
@@ -124,11 +124,12 @@
     });
   }
 
-  function createReference() {
-    return `PLENNUS${Date.now()}${Math.floor(Math.random() * 1000)}`.replace(/\D/g, '').replace(/^/, 'PLENNUS').slice(0, 64);
+  function createReference(prefix = 'FISCAL') {
+    const safePrefix = String(prefix || 'FISCAL').replace(/[^A-Za-z0-9]/g, '').slice(0, 16) || 'FISCAL';
+    return `${safePrefix}${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(0, 64);
   }
 
-  async function mount({ settingsContainer, financeContainer, api, hostAdapter = {} } = {}) {
+  async function mount({ settingsContainer, financeContainer, api, hostAdapter = {}, referencePrefix = 'FISCAL' } = {}) {
     if (!api) throw new Error('API fiscal indisponível.');
     const core = root.PlennusFiscalCore;
     if (!core) throw new Error('Núcleo fiscal não carregado.');
@@ -239,7 +240,7 @@
         }
         const digits = core.digits(document);
         const taxpayer = digits.length === 14 ? { cnpjTomador: digits } : { cpfTomador: digits };
-        const reference = createReference();
+        const reference = createReference(referencePrefix);
         try {
           let payload;
           if (status.documentType === 'nfsen') {
@@ -309,5 +310,5 @@
     return { refreshStatus };
   }
 
-  root.PlennusFiscal = { mount, connectionLabel, money };
+  root.PlennusFiscal = { mount, connectionLabel, money, createReference };
 })(typeof window !== 'undefined' ? window : globalThis);
