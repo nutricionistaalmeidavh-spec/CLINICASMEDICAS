@@ -7,9 +7,16 @@ const { createFocusClient } = require('./focus-client');
 
 const FISCAL_CONNECTION_FILENAME = 'fiscal-connection.enc';
 const MAX_FISCAL_PAYLOAD_BYTES = 128 * 1024;
+const FISCAL_DOCUMENT_TYPES = new Set(['nfse', 'nfsen']);
 
 function connectionPath(app) {
   return path.join(app.getPath('userData'), FISCAL_CONNECTION_FILENAME);
+}
+
+function validateDocumentType(value) {
+  const documentType = String(value || '').toLowerCase();
+  if (!FISCAL_DOCUMENT_TYPES.has(documentType)) throw new Error('Tipo de documento fiscal não suportado.');
+  return core.validateDocumentType(documentType);
 }
 
 function publicConnection(connection) {
@@ -40,16 +47,15 @@ function createConnectionStore({ app, safeStorage }) {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema operacional indisponível.');
     const secret = core.validateSecretConnection(input);
     const filePath = connectionPath(app);
-    const tempPath = `${filePath}.tmp`;
     const encrypted = safeStorage.encryptString(JSON.stringify(secret));
-    fs.writeFileSync(tempPath, encrypted, { mode: 0o600 });
-    fs.renameSync(tempPath, filePath);
+    fs.writeFileSync(filePath, encrypted, { mode: 0o600 });
     return publicConnection(secret);
   }
 
   function removeSecret() {
     const filePath = connectionPath(app);
-    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (error) { throw new Error(`Não foi possível remover a conexão fiscal: ${error.message}`); }
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); }
+    catch (error) { throw new Error(`Não foi possível remover a conexão fiscal: ${error.message}`); }
     return { configured: false };
   }
 
@@ -78,6 +84,7 @@ function registerFiscalIpc({ ipcMain, app, safeStorage, fetchImpl = globalThis.f
 
   handle('fiscal:save-connection', async (input) => {
     assertPayloadSize(input);
+    validateDocumentType(input.documentType || 'nfsen');
     const metadata = store.saveSecret(input);
     return { ok: true, ...metadata };
   });
@@ -87,14 +94,15 @@ function registerFiscalIpc({ ipcMain, app, safeStorage, fetchImpl = globalThis.f
   handle('fiscal:test-connection', async () => {
     const connection = store.readSecret();
     if (!connection) return { ok: false, error: 'Nenhuma conta fiscal conectada.' };
-    return client.testConnection({ connection, documentType: connection.documentType });
+    const documentType = validateDocumentType(connection.documentType);
+    return client.testConnection({ connection, documentType });
   });
 
   handle('fiscal:emit', async (input) => {
     assertPayloadSize(input);
     const connection = store.readSecret();
     if (!connection) return { ok: false, error: 'Nenhuma conta fiscal conectada.' };
-    const documentType = core.validateDocumentType(input.documentType || connection.documentType);
+    const documentType = validateDocumentType(input.documentType || connection.documentType);
     const reference = core.validateReference(input.reference);
     const payload = assertPayloadSize(input.payload || {});
     return client.emit({ connection, documentType, reference, payload });
@@ -106,7 +114,7 @@ function registerFiscalIpc({ ipcMain, app, safeStorage, fetchImpl = globalThis.f
     if (!connection) return { ok: false, error: 'Nenhuma conta fiscal conectada.' };
     return client.query({
       connection,
-      documentType: core.validateDocumentType(input.documentType || connection.documentType),
+      documentType: validateDocumentType(input.documentType || connection.documentType),
       reference: core.validateReference(input.reference)
     });
   });
@@ -117,7 +125,7 @@ function registerFiscalIpc({ ipcMain, app, safeStorage, fetchImpl = globalThis.f
     if (!connection) return { ok: false, error: 'Nenhuma conta fiscal conectada.' };
     return client.cancel({
       connection,
-      documentType: core.validateDocumentType(input.documentType || connection.documentType),
+      documentType: validateDocumentType(input.documentType || connection.documentType),
       reference: core.validateReference(input.reference),
       justification: input.justification
     });
@@ -129,6 +137,8 @@ function registerFiscalIpc({ ipcMain, app, safeStorage, fetchImpl = globalThis.f
 module.exports = {
   registerFiscalIpc,
   createConnectionStore,
+  validateDocumentType,
   MAX_FISCAL_PAYLOAD_BYTES,
-  FISCAL_CONNECTION_FILENAME
+  FISCAL_CONNECTION_FILENAME,
+  FISCAL_DOCUMENT_TYPES
 };
