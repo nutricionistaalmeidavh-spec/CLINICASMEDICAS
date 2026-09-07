@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const initSqlJs = require('sql.js');
+const clinicalStorage = require('./professional-clinical-storage');
 
 const MAX_DATABASE_BYTES = 128 * 1024 * 1024;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -25,7 +26,19 @@ function validateDatabaseArray(data) {
   return data;
 }
 
-function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console } = {}) {
+function professionalFilesDirectoryForIdentity(userData, identity) {
+  return clinicalStorage.professionalFilesDirectoryForIdentity(userData, identity);
+}
+
+function isManagedProfessionalClinicalPath(userData, identity, filePath) {
+  return clinicalStorage.isManagedProfessionalClinicalPath(userData, identity, filePath);
+}
+
+function isLegacyManagedClinicalPath(userData, filePath) {
+  return clinicalStorage.isLegacyManagedClinicalPath(userData, filePath);
+}
+
+function installLocalDataIsolation({ app, ipcMain, safeStorage, dialog = null, shell = null, logger = console } = {}) {
   if (!app || !ipcMain || !safeStorage) throw new Error('Electron dependencies are required');
   const sessions = new Map();
   let SQLPromise = null;
@@ -34,11 +47,10 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
   function clinicDirectory() { return path.join(dataRoot(), 'clinic'); }
   function clinicPath() { return path.join(clinicDirectory(), 'clinic.db.enc'); }
   function legacyPath() { return path.join(app.getPath('userData'), 'plennus-clinic.db.enc'); }
-  function professionalDirectory(session) {
-    const identity = sanitizeSegment(session.professionalUid || `id-${session.professionalId}`);
-    return path.join(dataRoot(), 'professionals', identity);
-  }
+  function professionalIdentity(session) { return sanitizeSegment(session.professionalUid || `id-${session.professionalId}`); }
+  function professionalDirectory(session) { return path.join(dataRoot(), 'professionals', professionalIdentity(session)); }
   function professionalPath(session) { return path.join(professionalDirectory(session), 'clinical.db.enc'); }
+  function professionalFilesDirectory(session) { return professionalFilesDirectoryForIdentity(app.getPath('userData'), professionalIdentity(session)); }
 
   function ensureEncryption() {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema operacional indisponível.');
@@ -214,6 +226,44 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
     try { const session = requireSession(event, token, { professional: true }); return writeEncryptedDatabase(professionalPath(session), data); }
     catch (error) { logger.warn('Persistência profissional recusada:', error.message); return { ok: false, error: error.message }; }
   });
+  ipcMain.handle('data-isolation:select-clinical-file', async (event, token) => {
+    try {
+      const session = requireSession(event, token, { professional: true });
+      if (!dialog?.showOpenDialog) throw new Error('Seleção de arquivo indisponível.');
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: 'Selecionar arquivo clínico',
+        properties: ['openFile'],
+        filters: [{ name: 'Documentos e imagens clínicas', extensions: Array.from(clinicalStorage.CLINICAL_EXTENSIONS).map(ext => ext.slice(1)) }]
+      });
+      if (canceled || !filePaths?.[0]) return { ok: false, cancelado: true };
+      const managed = clinicalStorage.copyClinicalFileIntoProfessionalStorage(app.getPath('userData'), professionalIdentity(session), filePaths[0]);
+      return { ok: true, ...managed, managed: true };
+    } catch (error) { logger.warn('Arquivo clínico recusado:', error.message); return { ok: false, error: error.message }; }
+  });
+  ipcMain.handle('data-isolation:adopt-legacy-clinical-file', (event, token, filePath) => {
+    try {
+      const session = requireSession(event, token, { professional: true });
+      const managed = clinicalStorage.adoptLegacyClinicalFile(app.getPath('userData'), professionalIdentity(session), filePath);
+      return { ok: true, ...managed, managed: true, adopted: true };
+    } catch (error) { logger.warn('Adoção de arquivo legado recusada:', error.message); return { ok: false, error: error.message }; }
+  });
+  ipcMain.handle('data-isolation:open-clinical-file', async (event, token, filePath) => {
+    try {
+      const session = requireSession(event, token, { professional: true });
+      if (!clinicalStorage.isManagedProfessionalClinicalPath(app.getPath('userData'), professionalIdentity(session), filePath) || !fs.existsSync(filePath)) {
+        throw new Error('Arquivo não pertence ao profissional autenticado.');
+      }
+      if (!shell?.openPath) throw new Error('Abertura de arquivo indisponível.');
+      const error = await shell.openPath(filePath);
+      return error ? { ok: false, error } : { ok: true };
+    } catch (error) { logger.warn('Abertura de arquivo clínico recusada:', error.message); return { ok: false, error: error.message }; }
+  });
+  ipcMain.handle('data-isolation:remove-clinical-file', (event, token, filePath) => {
+    try {
+      const session = requireSession(event, token, { professional: true });
+      return clinicalStorage.removeProfessionalClinicalFile(app.getPath('userData'), professionalIdentity(session), filePath);
+    } catch (error) { logger.warn('Remoção de arquivo clínico recusada:', error.message); return { ok: false, error: error.message }; }
+  });
   ipcMain.handle('data-isolation:end-session', (event, token) => {
     try { const session = requireSession(event, token); sessions.delete(session.token); return { ok: true }; }
     catch (_) { return { ok: true }; }
@@ -222,14 +272,26 @@ function installLocalDataIsolation({ app, ipcMain, safeStorage, logger = console
   return {
     clinicPath,
     professionalPath,
+    professionalFilesDirectory,
     hashPassword,
     sanitizeSegment,
     sessions,
     readClinicBytes,
     writeClinicBytes,
     getClinicUid,
-    createNetworkProfessionalSession
+    createNetworkProfessionalSession,
+    requireProfessionalSession: (event, token) => requireSession(event, token, { professional: true })
   };
 }
 
-module.exports = { MAX_DATABASE_BYTES, SESSION_TTL_MS, hashPassword, sanitizeSegment, validateDatabaseArray, installLocalDataIsolation };
+module.exports = {
+  MAX_DATABASE_BYTES,
+  SESSION_TTL_MS,
+  hashPassword,
+  sanitizeSegment,
+  validateDatabaseArray,
+  professionalFilesDirectoryForIdentity,
+  isManagedProfessionalClinicalPath,
+  isLegacyManagedClinicalPath,
+  installLocalDataIsolation
+};
