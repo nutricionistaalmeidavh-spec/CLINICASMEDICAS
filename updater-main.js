@@ -1,11 +1,13 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createUpdaterService } = require('./js/core/updater-service');
 const { installDesktopDataHardening } = require('./js/core/desktop-data-hardening');
 const { installRestoreRollback } = require('./js/core/restore-rollback');
+const { installLocalDataIsolation } = require('./js/core/local-data-isolation-main');
 
-// Mantém o bootstrap clínico existente e aplica hardening de persistência antes da janela iniciar o renderer.
+// Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
+installLocalDataIsolation({ app, ipcMain, safeStorage });
 installDesktopDataHardening();
 installRestoreRollback();
 
