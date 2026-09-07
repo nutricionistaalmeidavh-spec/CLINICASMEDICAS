@@ -16,6 +16,7 @@
 
   const DOMAIN_SCRIPTS = [
     'js/domains/dashboard.js',
+    'js/domains/dashboard-role-isolation.js',
     'js/domains/patients.js',
     'js/domains/professionals.js',
     'js/domains/agenda.js',
