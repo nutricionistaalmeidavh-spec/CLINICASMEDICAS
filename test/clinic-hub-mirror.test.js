@@ -12,7 +12,6 @@ test('Hub forwards applied remote mutations to local renderer instead of leaving
   const preload = read('preload.js');
   const client = read('js/core/clinic-network-client.js');
   const router = read('js/core/database-isolation-router-safe.js');
-  const database = read('js/database.js');
 
   assert.match(main, /onMutationApplied/);
   assert.match(main, /clinic-network:hub-mutation-applied/);
@@ -22,7 +21,7 @@ test('Hub forwards applied remote mutations to local renderer instead of leaving
   assert.match(client, /applyHubMutation/);
   assert.match(client, /onHubMutationApplied/);
   assert.match(router, /reloadCanonicalClinic/);
-  assert.match(database, /replaceInMemoryValidated/);
+  assert.match(router, /loadClinic/);
 });
 
 test('client connectivity state is based on successful RPC rather than only an authenticated session', () => {
