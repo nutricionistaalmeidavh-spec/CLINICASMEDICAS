@@ -27,10 +27,10 @@ test('preload exposes only session-bound professional database operations', () =
   assert.doesNotMatch(source, /professionalId\).*data-isolation:load-professional/);
 });
 
-test('renderer installs database routing before migrations and domain modules', () => {
+test('renderer installs backup-safe database routing before migrations and domain modules', () => {
   const source = read('js/core/navigation.js');
   const model = source.indexOf("'js/core/data-isolation.js'");
-  const router = source.indexOf("'js/core/database-isolation-router.js'");
+  const router = source.indexOf("'js/core/database-isolation-router-safe.js'");
   const migrations = source.indexOf("'js/core/migrations.js'");
   const settings = source.indexOf("'js/domains/settings.js'");
   const professionalLink = source.indexOf("'js/domains/professional-user-link.js'");
@@ -41,7 +41,14 @@ test('renderer installs database routing before migrations and domain modules', 
   assert.ok(professionalLink > settings);
 });
 
-test('legacy encrypted database remains present as rollback source in the main process', () => {
+test('clinical writes preserve the current backup contract while reads remain professional-only', () => {
+  const source = read('js/core/database-isolation-router-safe.js');
+  assert.match(source, /return querySqlJs\(professionalDb, sql, params\)/);
+  assert.match(source, /const result = clinicStore\.run\(sql, params\);[\s\S]*replaceProfessionalFromClinic\(\)/);
+  assert.match(source, /assertProfessionalClinicalSession\(\)/);
+});
+
+test('legacy encrypted database remains available and is never deleted by isolation bootstrap', () => {
   const source = read('main.js');
   const isolationMain = read('js/core/local-data-isolation-main.js');
   assert.match(source, /plennus-clinic\.db\.enc/);
