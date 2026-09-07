@@ -47,6 +47,7 @@
     'js/domains/workflow-stabilization.js',
     'js/domains/workflow-completion.js',
     'js/domains/backup-restore-coordinator.js',
+    'js/domains/clinic-network-workflow.js',
   ];
 
   function loadDomainScripts() {
@@ -64,7 +65,10 @@
       carregarGrade();
     },
     prontuario: () => carregarSelectsPep(),
-    pacientes: () => carregarPacientes(),
+    pacientes: () => {
+      carregarPacientes();
+      root.PlennusClinicNetworkWorkflow?.applyRemoteUiGuards?.();
+    },
     profissionais: () => carregarProfissionais(),
     convenios: () => {
       carregarConvenios();
@@ -133,6 +137,7 @@
 
     const loader = PAGE_LOADERS[page];
     if (loader) loader();
+    root.PlennusClinicNetworkWorkflow?.applyRemoteUiGuards?.();
     return true;
   }
 
