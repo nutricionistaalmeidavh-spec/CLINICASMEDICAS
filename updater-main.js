@@ -9,7 +9,7 @@ const { installClinicHub } = require('./js/core/clinic-network-main');
 // Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
 const isolationService = installLocalDataIsolation({ app, ipcMain, safeStorage });
-installClinicHub({ app, ipcMain, safeStorage, isolationService, logger: console });
+installClinicHub({ app, ipcMain, safeStorage, isolationService, BrowserWindow, logger: console });
 installDesktopDataHardening();
 installRestoreRollback();
 
