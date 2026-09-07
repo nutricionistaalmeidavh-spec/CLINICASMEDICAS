@@ -217,9 +217,9 @@
     database.run('DELETE FROM __plennus_allowed_patients');
     patients.forEach(id => database.run('INSERT OR IGNORE INTO __plennus_allowed_patients (id) VALUES (?)', [id]));
 
-    executeIfTable(database, 'prontuario_atendimentos', 'DELETE FROM prontuario_atendimentos WHERE profissional_id<>?', [professional]);
-    executeIfTable(database, 'documentos_emitidos', 'DELETE FROM documentos_emitidos WHERE profissional_id<>?', [professional]);
-    executeIfTable(database, 'planos_tratamento', 'DELETE FROM planos_tratamento WHERE profissional_id IS NOT NULL AND profissional_id<>?', [professional]);
+    executeIfTable(database, 'prontuario_atendimentos', 'DELETE FROM prontuario_atendimentos WHERE profissional_id IS NULL OR profissional_id<>?', [professional]);
+    executeIfTable(database, 'documentos_emitidos', 'DELETE FROM documentos_emitidos WHERE profissional_id IS NULL OR profissional_id<>?', [professional]);
+    executeIfTable(database, 'planos_tratamento', 'DELETE FROM planos_tratamento WHERE profissional_id IS NULL OR profissional_id<>?', [professional]);
 
     executeIfTable(database, 'plano_tratamento_itens', `DELETE FROM plano_tratamento_itens
       WHERE plano_id NOT IN (SELECT id FROM planos_tratamento)`);
