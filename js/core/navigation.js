@@ -1,5 +1,7 @@
 (function (root) {
   const CORE_SCRIPTS = [
+    'js/core/data-isolation.js',
+    'js/core/database-isolation-router.js',
     'js/core/clinical-model.js',
     'js/core/operations-model.js',
     'js/core/workflow-guards.js',
@@ -21,6 +23,7 @@
     'js/domains/documents.js',
     'js/domains/finance.js',
     'js/domains/settings.js',
+    'js/domains/professional-user-link.js',
     'js/domains/patient-workspace.js',
     'js/domains/clinical-files.js',
     'js/domains/consents.js',
