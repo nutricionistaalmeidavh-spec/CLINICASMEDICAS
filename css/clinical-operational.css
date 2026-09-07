@@ -1,0 +1,526 @@
+/* Clinical operational refinement — keeps the active Sage palette from platform.css. */
+:root {
+  --ops-sidebar-width: 218px;
+  --ops-control-height: 38px;
+  --ops-radius-sm: 6px;
+  --ops-radius-md: 8px;
+  --ops-radius-lg: 10px;
+  --ops-shadow: 0 2px 8px rgba(36, 40, 36, 0.06);
+  --ops-header-height: 66px;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-size: 13px;
+}
+
+.sidebar {
+  width: var(--ops-sidebar-width);
+  padding: 16px 12px;
+}
+
+.logo-area {
+  padding: 4px 6px 16px;
+}
+
+.logo-area h1 {
+  font-size: 18px;
+}
+
+.menu-item {
+  min-height: 34px;
+  gap: 9px;
+  padding: 8px 10px;
+  margin-bottom: 2px;
+  border-radius: var(--ops-radius-md);
+  font-size: 13px;
+}
+
+.menu-item svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+}
+
+.menu-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-info {
+  padding: 12px 8px 0;
+}
+
+.main-content {
+  margin-left: var(--ops-sidebar-width);
+  padding: 0 24px 28px;
+}
+
+.shell-topbar {
+  min-height: var(--ops-header-height);
+  margin: 0 -24px 18px;
+  padding: 10px 24px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(280px, 1.45fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border-subtle, #DDDCD4);
+  background: color-mix(in srgb, var(--surface-card, #FFF) 96%, transparent);
+  box-shadow: 0 1px 4px rgba(36, 40, 36, 0.04);
+}
+
+.shell-context {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shell-context strong {
+  overflow: hidden;
+  color: var(--text-primary, #242824);
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-eyebrow {
+  color: var(--text-muted, #667068);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.shell-mobile-menu {
+  display: none;
+  width: var(--ops-control-height);
+  height: var(--ops-control-height);
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border-default, #D8D8D0);
+  border-radius: var(--ops-radius-md);
+  background: var(--surface-card, #FFF);
+  color: var(--text-primary, #242824);
+  cursor: pointer;
+}
+
+.shell-mobile-menu svg,
+.shell-search-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.shell-search-wrap {
+  min-height: var(--ops-control-height);
+  border-radius: var(--ops-radius-md);
+}
+
+.shell-search-wrap input {
+  height: var(--ops-control-height);
+  min-height: var(--ops-control-height);
+  font-size: 13px;
+}
+
+.shell-search-wrap kbd {
+  border-radius: var(--ops-radius-sm);
+}
+
+.shell-profile {
+  min-height: var(--ops-control-height);
+  padding: 4px 7px 4px 5px;
+  border-radius: var(--ops-radius-md);
+}
+
+.shell-profile-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.shell-profile-copy strong {
+  font-size: 12px;
+}
+
+.shell-profile-copy span {
+  font-size: 10px;
+}
+
+.card,
+.dashboard-panel,
+.dashboard-stat,
+.patients-list-card,
+.patients-editor-card,
+.agenda-premium-form,
+.pep-premium-selector,
+.pep-premium-workspace {
+  border-radius: var(--ops-radius-lg) !important;
+  box-shadow: var(--ops-shadow) !important;
+}
+
+.card {
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.page-title,
+.page-heading-row {
+  margin-bottom: 14px;
+}
+
+.page-title h2,
+.page-heading-row h2,
+.final-premium-title,
+.admin-premium-title {
+  font-size: 19px !important;
+  letter-spacing: -0.01em;
+}
+
+input,
+select {
+  min-height: var(--ops-control-height);
+  height: var(--ops-control-height);
+  border-radius: var(--ops-radius-md) !important;
+}
+
+textarea,
+[contenteditable="true"] {
+  border-radius: var(--ops-radius-md) !important;
+}
+
+input,
+select,
+textarea {
+  padding: 8px 10px;
+}
+
+.form-row,
+.operations-grid-2,
+.operations-grid-3 {
+  gap: 10px;
+}
+
+.form-group,
+.field-group {
+  gap: 5px;
+}
+
+.form-group label,
+.field-group label {
+  margin-bottom: 0;
+  color: var(--text-secondary, #4D574F);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.btn {
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: var(--ops-radius-md) !important;
+  font-size: 12px;
+  box-shadow: none !important;
+}
+
+.btn-sm {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+table {
+  font-size: 13px;
+}
+
+table th,
+table td {
+  padding: 8px 10px !important;
+  line-height: 1.3;
+}
+
+table th {
+  font-size: 11px;
+}
+
+.badge-role,
+.status-badge,
+.patient-allergy-badge {
+  border-radius: var(--ops-radius-sm) !important;
+}
+
+.agenda-toolbar,
+.agenda-premium-toolbar {
+  gap: 8px;
+}
+
+.timeline-slot {
+  min-height: 54px;
+}
+
+.appointment-card,
+.espera-item {
+  border-radius: var(--ops-radius-md) !important;
+  box-shadow: none !important;
+}
+
+.agenda-patient-trigger {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary, #242824);
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.agenda-patient-trigger:hover {
+  color: var(--brand-primary, #35483C);
+  text-decoration-color: currentColor;
+}
+
+.pep-premium-patient {
+  position: sticky;
+  top: calc(var(--ops-header-height) + 8px);
+  z-index: 8;
+  border-radius: var(--ops-radius-lg) !important;
+  box-shadow: 0 3px 10px rgba(36, 40, 36, 0.07) !important;
+}
+
+.agenda-patient-sheet-backdrop,
+.shell-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(23, 28, 24, 0.24);
+}
+
+.agenda-patient-sheet-backdrop[hidden],
+.shell-menu-backdrop[hidden] {
+  display: none !important;
+}
+
+.agenda-patient-sheet {
+  position: fixed;
+  z-index: 1100;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, calc(100vw - 28px));
+  overflow: auto;
+  padding: 18px;
+  border-left: 1px solid var(--border-default, #D8D8D0);
+  background: var(--surface-card, #FFF);
+  color: var(--text-primary, #242824);
+  box-shadow: -10px 0 30px rgba(36, 40, 36, 0.12);
+  transform: translateX(100%);
+  transition: transform 180ms ease;
+}
+
+.agenda-patient-sheet.is-open {
+  transform: translateX(0);
+}
+
+.agenda-patient-sheet[hidden] {
+  display: none !important;
+}
+
+.agenda-patient-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, #DDDCD4);
+}
+
+.agenda-patient-sheet-header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.agenda-patient-sheet-close {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-default, #D8D8D0);
+  border-radius: var(--ops-radius-md);
+  background: var(--surface-muted, #F6F4EE);
+  color: var(--text-primary, #242824);
+  cursor: pointer;
+}
+
+.agenda-patient-sheet-content {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.agenda-patient-summary,
+.agenda-patient-appointment,
+.agenda-patient-clinical {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle, #DDDCD4);
+  border-radius: var(--ops-radius-md);
+  background: var(--surface-muted, #F6F4EE);
+}
+
+.agenda-patient-summary dl,
+.agenda-patient-appointment dl {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.agenda-patient-summary dt,
+.agenda-patient-appointment dt {
+  color: var(--text-muted, #667068);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.agenda-patient-summary dd,
+.agenda-patient-appointment dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agenda-patient-clinical-alert {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(168, 96, 70, 0.26);
+  border-radius: var(--ops-radius-sm);
+  background: rgba(168, 96, 70, 0.08);
+}
+
+body.overlay-open,
+body.sidebar-drawer-open {
+  overflow: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-accent, #8FA88F) !important;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1040px) {
+  .shell-topbar {
+    grid-template-columns: minmax(130px, 0.65fr) minmax(240px, 1.2fr) auto;
+    gap: 10px;
+  }
+
+  .shell-profile-copy {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .sidebar {
+    position: fixed;
+    z-index: 1200;
+    inset: 0 auto 0 0;
+    width: min(300px, 86vw);
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+  }
+
+  body.sidebar-drawer-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .shell-menu-backdrop {
+    z-index: 1190;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 0 16px 24px;
+  }
+
+  .shell-topbar {
+    margin: 0 -16px 16px;
+    padding: 9px 16px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  .shell-mobile-menu {
+    display: grid;
+  }
+
+  .shell-search-wrap {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .shell-context strong {
+    font-size: 13px;
+  }
+
+  .pep-premium-patient {
+    position: static;
+  }
+
+  .form-row,
+  .operations-grid-2,
+  .operations-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .shell-topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .shell-eyebrow {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .form-row,
+  .operations-grid-2,
+  .operations-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .agenda-patient-sheet {
+    width: 100vw;
+    padding: 16px;
+  }
+
+  .agenda-patient-summary dl,
+  .agenda-patient-appointment dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  table th,
+  table td {
+    padding: 7px 8px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
