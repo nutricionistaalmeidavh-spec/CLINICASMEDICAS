@@ -41,7 +41,7 @@
 **Files:**
 - Create: `test/fiscal-ipc.test.js`
 - Create: `js/modules/fiscal/fiscal-main.js`
-- Modify: `main.js`
+- Modify: `updater-main.js`
 - Modify: `preload.js`
 
 **Interfaces:**
@@ -50,7 +50,7 @@
 
 - [ ] Write tests for source-level security invariants: no token getter in preload, safeStorage usage, fixed Focus hostnames, bounded payloads, and IPC whitelist.
 - [ ] Run focused tests and confirm they fail before production wiring.
-- [ ] Register fiscal IPC from `main.js` and expose only restricted methods in `preload.js`.
+- [ ] Register fiscal IPC from the real desktop bootstrap `updater-main.js` and expose only restricted methods in `preload.js`.
 - [ ] Run focused tests and syntax checks.
 
 ### Task 3: Reusable certificate renderer
@@ -60,7 +60,7 @@
 - Create: `js/modules/certificate-digital/certificate-digital.js`
 
 **Interfaces:**
-- Produces: `window.PlennusCertificateDigital.mount({ container, provider, openExternal })`.
+- Produces: `window.PlennusCertificateDigital.mount({ container, provider, openExternal, hostName })`.
 - Default provider: UTW ArtiSys store, e-CNPJ/e-CPF at R$ 157,00.
 
 - [ ] Write tests for default provider URL/products and ensure no certificate/customer data are embedded into outbound URLs.
@@ -77,7 +77,7 @@
 - Modify: `js/app.js`
 
 **Interfaces:**
-- Fiscal UI mounts into Settings and Finance supplied containers.
+- Fiscal UI mounts into Settings and Finance supplied containers and accepts a host reference prefix.
 - Host adapter reads/writes non-secret fiscal profile config through the existing `configuracoes` table and supplies clinic/patient defaults.
 
 - [ ] Write source/behavior tests for module loading, optional-provider states, UTW mount, fiscal settings mount and finance mount.
