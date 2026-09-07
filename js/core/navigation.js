@@ -26,6 +26,7 @@
     'js/domains/documents.js',
     'js/domains/finance.js',
     'js/domains/settings.js',
+    'js/domains/composite-backup-ui.js',
     'js/domains/professional-user-link.js',
     'js/domains/patient-workspace.js',
     'js/domains/clinical-files.js',
