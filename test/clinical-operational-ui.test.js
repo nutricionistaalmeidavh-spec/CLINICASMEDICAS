@@ -7,6 +7,8 @@ const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const shell = read('js/core/shell.js');
 const agenda = read('js/domains/agenda.js');
+const workspace = read('js/domains/patient-workspace.js');
+const pep = read('js/domains/pep.js');
 const platform = read('css/platform.css');
 const html = read('index.html');
 const operationalCssPath = path.join(root, 'css', 'clinical-operational.css');
@@ -65,6 +67,31 @@ test('operational layer provides overlay focus, scroll lock and reduced-motion a
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /\.agenda-patient-sheet/);
   assert.match(css, /\.pep-premium-patient/);
+});
+
+test('workspace preserves unsaved field values while alternating among the eight patient sections', () => {
+  assert.match(workspace, /const TABS = \[/);
+  assert.equal((workspace.match(/\{ id:/g) || []).length, 8);
+  for (const marker of ['workspaceDrafts', 'captureWorkspaceDraft', 'restoreWorkspaceDraft', 'input, select, textarea']) {
+    assert.match(workspace, new RegExp(marker));
+  }
+});
+
+test('shared form refinement marks required controls and exposes inline validation messages', () => {
+  for (const marker of ['markRequiredControls', 'bindInlineValidation', 'aria-required', 'aria-invalid', 'form-validation-message']) {
+    assert.match(shell, new RegExp(marker));
+  }
+  if (!fs.existsSync(operationalCssPath)) return;
+  const css = read('css/clinical-operational.css');
+  assert.match(css, /\.form-validation-message/);
+  assert.match(css, /:has\([^)]*\[required\]/);
+});
+
+test('direct PEP entry points retain the centralized clinical access boundary', () => {
+  assert.match(pep, /canAccessPatientClinicalWorkspace/);
+  assert.match(pep, /abrirProntuarioPaciente/);
+  assert.match(pep, /abrirProntuarioDaAgenda/);
+  assert.match(pep, /Acesso clínico restrito/);
 });
 
 test('existing role and page contracts remain in place', () => {
