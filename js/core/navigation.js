@@ -1,6 +1,7 @@
 (function (root) {
   const CORE_SCRIPTS = [
     'js/core/data-isolation.js',
+    'js/core/clinic-network-client.js',
     'js/core/database-isolation-router-safe.js',
     'js/core/clinical-model.js',
     'js/core/operations-model.js',
@@ -17,6 +18,7 @@
   const DOMAIN_SCRIPTS = [
     'js/domains/dashboard.js',
     'js/domains/dashboard-role-isolation.js',
+    'js/domains/clinic-network-status.js',
     'js/domains/patients.js',
     'js/domains/professionals.js',
     'js/domains/agenda.js',
@@ -88,6 +90,7 @@
     configuracoes: () => {
       carregarConfig();
       carregarUsuariosConfig();
+      root.PlennusClinicNetworkStatus?.renderSettings?.();
     },
     importar: () => carregarImportacao(),
     auditoria: () => carregarAuditoria(),
