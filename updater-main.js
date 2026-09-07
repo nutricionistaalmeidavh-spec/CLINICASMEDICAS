@@ -3,14 +3,36 @@ const { autoUpdater } = require('electron-updater');
 const { createUpdaterService } = require('./js/core/updater-service');
 const { installDesktopDataHardening } = require('./js/core/desktop-data-hardening');
 const { installRestoreRollback } = require('./js/core/restore-rollback');
-const { installLocalDataIsolation } = require('./js/core/local-data-isolation-main');
+const { installLocalDataIsolation, SESSION_TTL_MS } = require('./js/core/local-data-isolation-main');
 const { installProfessionalClinicalImageReader } = require('./js/core/professional-clinical-image-main');
+const { installCompositeBackupService } = require('./js/core/composite-backup-service');
 const { installClinicHub } = require('./js/core/clinic-network-main');
 
 // Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
 const isolationService = installLocalDataIsolation({ app, ipcMain, safeStorage, dialog, shell });
+
+function requireExistingSession(event, token) {
+  const key = String(token || '');
+  const session = isolationService.sessions.get(key);
+  if (!session) throw new Error('Sessão local expirada ou inválida.');
+  if (Date.now() - Number(session.lastSeenAt || 0) > SESSION_TTL_MS) {
+    isolationService.sessions.delete(key);
+    throw new Error('Sessão local expirada ou inválida.');
+  }
+  if (session.senderId !== event.sender.id) throw new Error('Sessão local não pertence a esta janela.');
+  session.lastSeenAt = Date.now();
+  return session;
+}
+
+const administrativeIsolationService = {
+  ...isolationService,
+  requireSession: requireExistingSession,
+  invalidateAllSessions: () => isolationService.sessions.clear()
+};
+
 installProfessionalClinicalImageReader({ ipcMain, isolationService, logger: console });
+installCompositeBackupService({ app, ipcMain, safeStorage, isolationService: administrativeIsolationService, dialog, logger: console });
 installClinicHub({ app, ipcMain, safeStorage, isolationService, BrowserWindow, logger: console });
 installDesktopDataHardening();
 installRestoreRollback();
