@@ -6,14 +6,15 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('desktop bootstrap installs composite backup after local isolation and before renderer use', () => {
-  const source = read('updater-main.js');
-  const isolation = source.indexOf('installLocalDataIsolation');
-  const composite = source.indexOf('installCompositeBackupService({');
+test('desktop bootstrap installs composite backup after local isolation and keeps authorization server-side', () => {
+  const bootstrap = read('updater-main.js');
+  const service = read('js/core/composite-backup-service.js');
+  const isolation = bootstrap.indexOf('installLocalDataIsolation');
+  const composite = bootstrap.indexOf('installCompositeBackupService({');
   assert.ok(isolation >= 0);
   assert.ok(composite > isolation);
-  assert.match(source, /role !== 'admin'|Apenas administradores/);
-  assert.match(source, /session\.senderId !== event\.sender\.id/);
+  assert.match(service, /session\?\.role !== 'admin'|session\.role !== 'admin'|Apenas administradores/);
+  assert.match(bootstrap, /session\.senderId !== event\.sender\.id/);
 });
 
 test('preload exposes only high-level composite backup actions and no raw backup bytes', () => {
@@ -29,9 +30,11 @@ test('settings exports V3 through authenticated session and restore coordinator 
   const coordinator = read('js/domains/backup-restore-coordinator.js');
   const navigation = read('js/core/navigation.js');
   assert.match(ui, /DB\?\.session\?\.\(\)\?\.token/);
-  assert.match(ui, /compositeBackup\?\.save/);
-  assert.match(coordinator, /compositeBackup\?\.open/);
-  assert.match(coordinator, /compositeBackup\.commit/);
+  assert.match(ui, /electronAPI\?\.compositeBackup/);
+  assert.match(ui, /api\.save\(token, password\)/);
+  assert.match(coordinator, /electronAPI\?\.compositeBackup/);
+  assert.match(coordinator, /api\.open\(token, password\)/);
+  assert.match(coordinator, /api\.commit\(token, staged\.sessionId\)/);
   assert.match(coordinator, /legacyFormat/);
   assert.ok(navigation.indexOf("'js/domains/composite-backup-ui.js'") > navigation.indexOf("'js/domains/settings.js'"));
 });
