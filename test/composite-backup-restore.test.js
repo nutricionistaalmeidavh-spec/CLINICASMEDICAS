@@ -27,9 +27,9 @@ async function clinicDb(marker, clinicUid = 'clinic-001') {
     CREATE TABLE usuarios (id INTEGER PRIMARY KEY, nome TEXT, usuario TEXT, senha TEXT, nivel TEXT, ativo INTEGER);
     CREATE TABLE profissionais (id INTEGER PRIMARY KEY, uid TEXT, nome TEXT);
     CREATE TABLE pacientes (id INTEGER PRIMARY KEY, uid TEXT, nome TEXT);
-    CREATE TABLE agenda (id INTEGER PRIMARY KEY, paciente_id INTEGER, profissional_id INTEGER, status TEXT);
-    INSERT INTO configuracoes VALUES ('clinic_uid', ?);
-    INSERT INTO configuracoes VALUES ('marker', ?);`, [clinicUid, marker]);
+    CREATE TABLE agenda (id INTEGER PRIMARY KEY, paciente_id INTEGER, profissional_id INTEGER, status TEXT);`);
+  db.run("INSERT INTO configuracoes VALUES ('clinic_uid', ?)", [clinicUid]);
+  db.run("INSERT INTO configuracoes VALUES ('marker', ?)", [marker]);
   const bytes = Buffer.from(db.export());
   db.close();
   return bytes;
@@ -41,8 +41,8 @@ async function professionalDb(marker) {
   db.run(`CREATE TABLE pacientes (id INTEGER PRIMARY KEY, uid TEXT, nome TEXT);
     CREATE TABLE prontuario_atendimentos (id INTEGER PRIMARY KEY, paciente_id INTEGER, profissional_id INTEGER, plano_conduta TEXT);
     CREATE TABLE arquivos_clinicos (id INTEGER PRIMARY KEY, paciente_id INTEGER, caminho_arquivo TEXT);
-    CREATE TABLE local_marker (value TEXT);
-    INSERT INTO local_marker VALUES (?);`, [marker]);
+    CREATE TABLE local_marker (value TEXT);`);
+  db.run('INSERT INTO local_marker VALUES (?)', [marker]);
   const bytes = Buffer.from(db.export());
   db.close();
   return bytes;
