@@ -13,6 +13,7 @@ const odontology = read('js/domains/odontology.js');
 const finance = read('js/domains/finance-advanced.js');
 const html = read('index.html');
 const moduleCssPath = path.join(root, 'css', 'sage-premium-modules.css');
+const adminCssPath = path.join(root, 'css', 'sage-premium-admin.css');
 
 test('Sage Premium tokens replace the legacy wine brand without changing semantic statuses', () => {
   for (const value of ['#35483C', '#526A5A', '#8FA88F', '#F6F4EE', '#242824', '#667068', '#DDDCD4']) {
@@ -108,4 +109,32 @@ test('odontology and finance preserve domain contracts while receiving the premi
     assert.match(css, /\.odontology-premium-page/);
     assert.match(css, /\.finance-premium-page/);
   }
+});
+
+test('administrative operations receive Sage Premium classes without changing legacy ids', () => {
+  assert.match(shell, /sage-premium-admin\.css/);
+  for (const value of [
+    'professionals-premium-page', 'insurance-premium-page', 'documents-premium-page',
+    'cash-premium-page', 'payouts-premium-page'
+  ]) assert.match(shell, new RegExp(value));
+
+  for (const id of [
+    'page-profissionais','prof-id','prof-nome','prof-esp','prof-crm','prof-tel','prof-perc','tabela-profissionais',
+    'page-convenios','conv-id','conv-nome','conv-codigo','conv-tel','conv-contato','proc-nome','proc-valor','tabela-convenios','tabela-procedimentos',
+    'page-documentos','doc-tipo','doc-paciente','doc-profissional','doc-editor',
+    'page-caixa','cx-entradas','cx-saidas','cx-saldo','cx-tipo','cx-desc','cx-valor','cx-forma','tabela-caixa',
+    'page-repasses','rep-prof','rep-inicio','rep-fim','rep-bruto','rep-perc','tabela-repasses'
+  ]) assert.match(html, new RegExp(`id="${id}"`));
+});
+
+test('admin operations stylesheet defines premium workspaces and responsive behavior', () => {
+  assert.ok(fs.existsSync(adminCssPath), 'admin premium stylesheet must exist');
+  if (!fs.existsSync(adminCssPath)) return;
+  const css = read('css/sage-premium-admin.css');
+  for (const marker of [
+    'Administrative operations premium workspace',
+    '.professionals-premium-page', '.insurance-premium-page', '.documents-premium-page',
+    '.cash-premium-page', '.payouts-premium-page', '.documents-premium-editor',
+    '.cash-premium-summary', '.payouts-premium-ledger', '@media'
+  ]) assert.ok(css.includes(marker), `missing admin premium marker: ${marker}`);
 });
