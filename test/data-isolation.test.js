@@ -98,3 +98,30 @@ test('migration summary resolves patients assigned to the selected professional 
     database.close();
   }
 });
+
+test('professional database pruning removes foreign and unassigned professional records', async () => {
+  const SQL = await initSqlJs();
+  const database = new SQL.Database();
+  const db = makeAdapter(database);
+  try {
+    database.run(`
+      CREATE TABLE usuarios (id INTEGER PRIMARY KEY,senha TEXT);
+      CREATE TABLE prontuario_atendimentos (id INTEGER PRIMARY KEY,paciente_id INTEGER,profissional_id INTEGER);
+      CREATE TABLE documentos_emitidos (id INTEGER PRIMARY KEY,paciente_id INTEGER,profissional_id INTEGER);
+      CREATE TABLE planos_tratamento (id INTEGER PRIMARY KEY,paciente_id INTEGER,profissional_id INTEGER);
+      INSERT INTO usuarios VALUES (1,'secret');
+      INSERT INTO prontuario_atendimentos VALUES (1,10,1),(2,20,2),(3,30,NULL);
+      INSERT INTO documentos_emitidos VALUES (1,10,1),(2,20,2),(3,30,NULL);
+      INSERT INTO planos_tratamento VALUES (1,10,1),(2,20,2),(3,30,NULL);
+    `);
+
+    isolation.pruneProfessionalDatabase(db, 1, [10]);
+
+    assert.deepEqual(db.query('SELECT id FROM prontuario_atendimentos ORDER BY id').map(row => row.id), [1]);
+    assert.deepEqual(db.query('SELECT id FROM documentos_emitidos ORDER BY id').map(row => row.id), [1]);
+    assert.deepEqual(db.query('SELECT id FROM planos_tratamento ORDER BY id').map(row => row.id), [1]);
+    assert.equal(db.query('SELECT senha FROM usuarios WHERE id=1')[0].senha, '');
+  } finally {
+    database.close();
+  }
+});
