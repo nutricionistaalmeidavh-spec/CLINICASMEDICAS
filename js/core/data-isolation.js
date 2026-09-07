@@ -15,6 +15,8 @@
     'pendencias_clinicas',
     'odontogramas',
     'odontograma_condicoes',
+    'odontograma_elementos',
+    'odontograma_elemento_eventos',
     'planos_tratamento',
     'plano_tratamento_itens',
     'orcamentos_odontologicos',
@@ -85,6 +87,10 @@
     } catch (_) {
       return false;
     }
+  }
+
+  function hasColumn(database, table, column) {
+    return tableInfo(database, table).some(row => String(row.name || Object.values(row)[1] || '') === column);
   }
 
   function addColumnIfMissing(database, table, column, definition) {
@@ -236,8 +242,30 @@
 
     executeIfTable(database, 'exames_resultados', `DELETE FROM exames_resultados
       WHERE exame_id NOT IN (SELECT id FROM exames_laboratoriais)`);
+
+    executeIfTable(database, 'odontograma_elementos', `DELETE FROM odontograma_elementos
+      WHERE odontograma_id NOT IN (SELECT id FROM odontogramas)
+         OR profissional_id IS NULL OR profissional_id<>?`, [professional]);
+    executeIfTable(database, 'odontograma_elemento_eventos', `DELETE FROM odontograma_elemento_eventos
+      WHERE elemento_id NOT IN (SELECT id FROM odontograma_elementos)`);
     executeIfTable(database, 'odontograma_condicoes', `DELETE FROM odontograma_condicoes
       WHERE odontograma_id NOT IN (SELECT id FROM odontogramas)`);
+
+    if (hasColumn(database, 'odontograma_condicoes', 'elemento_dental_id') && tableExists(database, 'odontograma_elementos')) {
+      database.run(`UPDATE odontograma_condicoes SET elemento_dental_id=NULL
+        WHERE elemento_dental_id IS NOT NULL
+          AND elemento_dental_id NOT IN (SELECT id FROM odontograma_elementos)`);
+    }
+    if (hasColumn(database, 'plano_tratamento_itens', 'elemento_dental_id') && tableExists(database, 'odontograma_elementos')) {
+      database.run(`UPDATE plano_tratamento_itens SET elemento_dental_id=NULL
+        WHERE elemento_dental_id IS NOT NULL
+          AND elemento_dental_id NOT IN (SELECT id FROM odontograma_elementos)`);
+    }
+    if (hasColumn(database, 'orcamento_odontologico_itens', 'elemento_dental_id') && tableExists(database, 'odontograma_elementos')) {
+      database.run(`UPDATE orcamento_odontologico_itens SET elemento_dental_id=NULL
+        WHERE elemento_dental_id IS NOT NULL
+          AND elemento_dental_id NOT IN (SELECT id FROM odontograma_elementos)`);
+    }
 
     if (tableExists(database, 'usuarios')) database.run("UPDATE usuarios SET senha='' WHERE senha IS NOT NULL");
     executeIfTable(database, 'audit_log', 'DELETE FROM audit_log');
@@ -257,6 +285,7 @@
     touchesClinicalTable,
     canUseClinicalDatabase,
     tableExists,
+    hasColumn,
     ensureIsolationSchema,
     professionalPatientIds,
     buildProfessionalMigrationSummary,
