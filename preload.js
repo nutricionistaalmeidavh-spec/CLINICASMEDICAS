@@ -17,6 +17,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   lerImagemClinicaParaDocumento: (filePath) => ipcRenderer.invoke('ler-imagem-clinica-para-documento', filePath),
   carregarBanco: () => ipcRenderer.invoke('carregar-banco'),
   salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data),
+  dataIsolation: {
+    loadClinic: () => ipcRenderer.invoke('data-isolation:load-clinic'),
+    saveClinic: (data) => ipcRenderer.invoke('data-isolation:save-clinic', data),
+    authenticate: (credentials) => ipcRenderer.invoke('data-isolation:authenticate', credentials),
+    loadProfessional: (sessionToken) => ipcRenderer.invoke('data-isolation:load-professional', sessionToken),
+    saveProfessional: (sessionToken, data) => ipcRenderer.invoke('data-isolation:save-professional', sessionToken, data),
+    endSession: (sessionToken) => ipcRenderer.invoke('data-isolation:end-session', sessionToken)
+  },
   updater: {
     state: () => ipcRenderer.invoke('updater:state'),
     check: () => ipcRenderer.invoke('updater:check'),
