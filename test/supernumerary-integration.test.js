@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const initSqlJs = require('sql.js');
 
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -9,6 +10,22 @@ const model = require('../js/core/supernumerary-model');
 const migrations = require('../js/core/migrations');
 const supernumeraryMigration = require('../js/core/supernumerary-migration');
 supernumeraryMigration.install(migrations);
+const supernumeraryDatabase = require('../js/domains/supernumerary-database');
+
+function sqliteAdapter(database, professionalId = 2) {
+  return {
+    query(sql, params = []) {
+      const stmt = database.prepare(sql);
+      stmt.bind(params);
+      const rows = [];
+      try { while (stmt.step()) rows.push(stmt.getAsObject()); return rows; }
+      finally { stmt.free(); }
+    },
+    run(sql, params = []) { database.run(sql, params); return database.getRowsModified(); },
+    getLastId() { return Number(database.exec('SELECT last_insert_rowid() id')[0].values[0][0]); },
+    session() { return { role: 'medico', professionalId }; }
+  };
+}
 
 test('supranumerary model generates stable FDI labels and monotonic indexes', () => {
   assert.equal(model.validateReferenceTooth(11), 11);
@@ -67,6 +84,45 @@ test('supernumerary schema columns are repaired idempotently after migration reg
   assert.equal(first.added, 4);
   assert.equal(second.added, 0);
   assert.equal(calls.filter(sql => /^ALTER TABLE/i.test(sql)).length, 4);
+});
+
+test('supernumerary database persists SN1/SN2, status history and element-scoped conditions', async () => {
+  const SQL = await initSqlJs();
+  const database = new SQL.Database();
+  database.run('CREATE TABLE usuarios (id INTEGER PRIMARY KEY)');
+  database.run('CREATE TABLE profissionais (id INTEGER PRIMARY KEY)');
+  database.run('CREATE TABLE odontogramas (id INTEGER PRIMARY KEY, paciente_id INTEGER)');
+  database.run(`CREATE TABLE odontograma_condicoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, odontograma_id INTEGER NOT NULL, dente INTEGER NOT NULL,
+    face TEXT, condicao TEXT NOT NULL, observacao TEXT, ativo INTEGER DEFAULT 1, registrado_por INTEGER,
+    criado_em TEXT DEFAULT CURRENT_TIMESTAMP, atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  database.run('CREATE TABLE plano_tratamento_itens (id INTEGER PRIMARY KEY, dente INTEGER)');
+  database.run('CREATE TABLE orcamento_odontologico_itens (id INTEGER PRIMARY KEY, dente INTEGER)');
+  database.run('INSERT INTO usuarios(id) VALUES (7)');
+  database.run('INSERT INTO profissionais(id) VALUES (2)');
+  database.run('INSERT INTO odontogramas(id,paciente_id) VALUES (10,99)');
+  supernumeraryMigration.MIGRATION.sql.forEach(sql => database.run(sql));
+  supernumeraryMigration.ensureColumns(database);
+
+  const api = supernumeraryDatabase.createApi({ DB: sqliteAdapter(database), model, currentUser: () => ({ id: 7 }) });
+  const first = api.create({ odontogramId: 10, referenceTooth: 11 });
+  const second = api.create({ odontogramId: 10, referenceTooth: 11 });
+  assert.equal(first.label, '11-SN1');
+  assert.equal(second.label, '11-SN2');
+  assert.equal(api.list(10).length, 2);
+
+  api.setStatus(first.id, 'extraido');
+  assert.equal(api.get(first.id).status, 'extraido');
+  const history = api.history(first.id);
+  assert.equal(history.at(-1).status_novo, 'extraido');
+
+  api.addCondition(first.id, { condition: 'carie', face: 'vestibular', observation: 'Teste' });
+  const conditions = api.conditions(first.id);
+  assert.equal(conditions.length, 1);
+  assert.equal(Number(conditions[0].elemento_dental_id), first.id);
+  assert.equal(Number(conditions[0].dente), 11);
+  database.close();
 });
 
 test('new dental element tables are clinical and never shared through clinic LAN snapshots', () => {
