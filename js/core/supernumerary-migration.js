@@ -53,14 +53,6 @@
     ]
   });
 
-  function install(migrations) {
-    if (!migrations?.MIGRATIONS || !Array.isArray(migrations.MIGRATIONS)) throw new Error('Registro de migrations indisponível.');
-    if (!migrations.MIGRATIONS.some(item => Number(item.version) === VERSION)) migrations.MIGRATIONS.push(MIGRATION);
-    migrations.MIGRATIONS.sort((a, b) => Number(a.version) - Number(b.version));
-    migrations.CURRENT_SCHEMA_VERSION = Math.max(Number(migrations.CURRENT_SCHEMA_VERSION) || 0, VERSION);
-    return migrations;
-  }
-
   function columnNames(database, table) {
     if (typeof database?.query === 'function') {
       try { return new Set((database.query(`PRAGMA table_info(${table})`) || []).map(row => String(row.name || Object.values(row)[1] || ''))); }
@@ -77,14 +69,18 @@
 
   function tableExists(database, table) {
     if (typeof database?.query === 'function') {
-      try { return (database.query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table]) || []).length > 0; }
-      catch (_) { return false; }
+      try {
+        const rows = database.query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table]) || [];
+        if (rows.length) return true;
+      } catch (_) { /* fall through */ }
+      return columnNames(database, table).size > 0;
     }
     if (typeof database?.exec === 'function') {
       try {
         const escaped = String(table).replaceAll("'", "''");
-        return Boolean(database.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${escaped}'`)?.[0]?.values?.length);
-      } catch (_) { return false; }
+        if (database.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${escaped}'`)?.[0]?.values?.length) return true;
+      } catch (_) { /* fall through */ }
+      return columnNames(database, table).size > 0;
     }
     return false;
   }
@@ -98,16 +94,40 @@
       database.run(`ALTER TABLE ${item.table} ADD COLUMN ${item.column} ${item.definition}`);
       added += 1;
     }
-    if (tableExists(database, 'odontograma_condicoes')) {
+    if (tableExists(database, 'odontograma_condicoes') && columnNames(database, 'odontograma_condicoes').has('elemento_dental_id')) {
       database.run('CREATE INDEX IF NOT EXISTS idx_odonto_condicoes_elemento ON odontograma_condicoes(elemento_dental_id,ativo)');
     }
-    if (tableExists(database, 'plano_tratamento_itens')) {
+    if (tableExists(database, 'plano_tratamento_itens') && columnNames(database, 'plano_tratamento_itens').has('elemento_dental_id')) {
       database.run('CREATE INDEX IF NOT EXISTS idx_plano_item_elemento ON plano_tratamento_itens(elemento_dental_id)');
     }
-    if (tableExists(database, 'orcamento_odontologico_itens')) {
+    if (tableExists(database, 'orcamento_odontologico_itens') && columnNames(database, 'orcamento_odontologico_itens').has('elemento_dental_id')) {
       database.run('CREATE INDEX IF NOT EXISTS idx_orcamento_item_elemento ON orcamento_odontologico_itens(elemento_dental_id)');
     }
     return { version: VERSION, added };
+  }
+
+  function install(migrations) {
+    if (!migrations?.MIGRATIONS || !Array.isArray(migrations.MIGRATIONS)) throw new Error('Registro de migrations indisponível.');
+    if (!migrations.MIGRATIONS.some(item => Number(item.version) === VERSION)) migrations.MIGRATIONS.push(MIGRATION);
+    migrations.MIGRATIONS.sort((a, b) => Number(a.version) - Number(b.version));
+    migrations.CURRENT_SCHEMA_VERSION = Math.max(Number(migrations.CURRENT_SCHEMA_VERSION) || 0, VERSION);
+
+    if (!migrations.__supernumeraryWrapped) {
+      const originalRunMigrations = migrations.runMigrations.bind(migrations);
+      const originalEnsurePlatformSchema = migrations.ensurePlatformSchema.bind(migrations);
+      migrations.runMigrations = async function runMigrationsWithSupernumerary(options = {}) {
+        const result = await originalRunMigrations(options);
+        ensureColumns(options.database);
+        return result;
+      };
+      migrations.ensurePlatformSchema = async function ensurePlatformSchemaWithSupernumerary(database, electronAPI, auditApi) {
+        const result = await originalEnsurePlatformSchema(database, electronAPI, auditApi);
+        ensureColumns(database);
+        return result;
+      };
+      migrations.__supernumeraryWrapped = true;
+    }
+    return migrations;
   }
 
   return { VERSION, MIGRATION, install, ensureColumns, columnNames, tableExists };
