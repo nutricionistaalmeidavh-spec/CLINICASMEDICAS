@@ -1,0 +1,696 @@
+/* Agenda premium workspace */
+.agenda-premium-page,
+.pep-premium-page,
+.odontology-premium-page,
+.finance-premium-page {
+  max-width: 1540px;
+  margin: 0 auto;
+}
+
+.agenda-premium-header,
+.odontology-premium-header,
+.finance-premium-header {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  margin-bottom: 18px !important;
+}
+
+.agenda-premium-header .page-title,
+.odontology-premium-header .page-title,
+.finance-premium-header .page-title,
+.pep-premium-page > .page-title {
+  margin: 0 !important;
+}
+
+.agenda-premium-page .agenda-premium-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: rgba(255,255,255,.92);
+  box-shadow: var(--shadow-sm);
+}
+
+.agenda-premium-page .agenda-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.agenda-premium-page .agenda-date-nav input[type="date"],
+.agenda-premium-page #agenda-filtro-prof {
+  height: 38px !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  background: #fffefb !important;
+  color: var(--text-primary) !important;
+  padding: 0 10px !important;
+}
+
+.agenda-premium-page #agenda-data-extenso {
+  color: var(--brand-primary-dark) !important;
+  font-size: 12px;
+  letter-spacing: -.01em;
+}
+
+.agenda-premium-page .agenda-premium-form {
+  border: 1px solid #d7ddd4 !important;
+  border-left: 1px solid #d7ddd4 !important;
+  border-radius: 18px !important;
+  padding: 18px !important;
+  box-shadow: var(--shadow-md) !important;
+  background: #fff !important;
+}
+
+.agenda-premium-page .agenda-premium-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  margin: 0 0 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: #eceee8;
+  overflow-x: auto;
+}
+
+.agenda-premium-page .agenda-premium-tabs .tab-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.agenda-premium-page .agenda-premium-tabs .tab-btn:hover {
+  color: var(--brand-primary-dark);
+  background: rgba(255,255,255,.58);
+}
+
+.agenda-premium-page .agenda-premium-tabs .tab-btn.active {
+  color: var(--brand-primary-dark);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(53,72,60,.08);
+}
+
+.agenda-premium-page .timeline-view-container {
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  background: rgba(255,255,255,.94);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.agenda-premium-page #timeline-slots-container {
+  padding: 8px 14px 16px;
+}
+
+.agenda-premium-page .timeline-slot {
+  display: grid;
+  grid-template-columns: 68px minmax(0,1fr);
+  align-items: stretch;
+  min-height: 66px;
+  border-bottom: 1px solid #ecece6;
+}
+
+.agenda-premium-page .timeline-slot:last-child { border-bottom: 0; }
+
+.agenda-premium-page .timeline-hour {
+  padding: 15px 12px 0 2px;
+  color: #667068;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: .02em;
+}
+
+.agenda-premium-page .timeline-slot-content {
+  min-width: 0;
+  padding: 7px 0;
+  border-left: 1px solid #ecece6;
+}
+
+.agenda-premium-page .slot-empty {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  margin-left: 8px;
+  border: 1px dashed transparent;
+  border-radius: 12px;
+  color: #8a938c;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.agenda-premium-page .slot-empty:hover {
+  background: #f3f6f1;
+  border-color: #cbd6c8;
+  color: var(--brand-primary-dark);
+}
+
+.agenda-premium-page .appointment-card {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 6px 8px;
+  padding: 10px 12px !important;
+  border: 1px solid #e2e5df !important;
+  border-left-width: 3px !important;
+  border-radius: 13px !important;
+  background: #fff !important;
+  box-shadow: 0 2px 8px rgba(53,72,60,.05);
+}
+
+.agenda-premium-page .appointment-card strong { color: var(--text-primary) !important; }
+.agenda-premium-page .appointment-card.status-agendado { border-left-color: #7d91a2 !important; }
+.agenda-premium-page .appointment-card.status-confirmado { border-left-color: #6c8c73 !important; }
+.agenda-premium-page .appointment-card.status-espera { border-left-color: #c4944f !important; background: #fffdf7 !important; }
+.agenda-premium-page .appointment-card.status-atendimento { border-left-color: #a76f43 !important; background: #fffaf5 !important; }
+.agenda-premium-page .appointment-card.status-realizado { border-left-color: #9aa49d !important; background: #f9faf8 !important; }
+.agenda-premium-page .appointment-card.status-cancelado { border-left-color: #b85c5c !important; opacity: .72; }
+
+.agenda-premium-page .waiting-timer {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.agenda-premium-page .espera-board {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 14px;
+}
+
+.agenda-premium-page .espera-column {
+  min-width: 0;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.agenda-premium-page .espera-column-header {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+  font-size: 12px;
+  font-weight: 720;
+  background: #f5f6f2;
+}
+
+.agenda-premium-page .espera-list { padding: 10px; }
+.agenda-premium-page .espera-item {
+  margin-bottom: 9px;
+  padding: 12px !important;
+  border: 1px solid #e4e5df;
+  border-left-width: 3px !important;
+  border-radius: 13px;
+  background: #fff !important;
+  box-shadow: none;
+}
+
+/* PEP premium workspace */
+.pep-premium-page > .page-title { margin-bottom: 16px !important; }
+
+.pep-premium-page .pep-premium-selector {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.94);
+}
+
+.pep-premium-page .pep-premium-patient {
+  margin-bottom: 14px;
+  padding: 16px 18px !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(135deg,#fff 0%,#f6f7f2 100%) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.pep-premium-page .pep-patient-info {
+  display: grid;
+  grid-template-columns: minmax(180px,1.6fr) repeat(4,minmax(110px,1fr));
+  gap: 8px 14px;
+  padding-bottom: 11px;
+}
+
+.pep-premium-page .pep-patient-info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.pep-premium-page .pep-patient-info .text-muted {
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.pep-premium-page .pep-alert-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px !important;
+  border: 1px solid #e8c4c0 !important;
+  border-radius: 12px !important;
+  background: var(--danger-soft) !important;
+  color: var(--danger-text) !important;
+}
+
+.pep-premium-page .pep-alert-box.no-allergy {
+  border-color: #d5e2d4 !important;
+  background: var(--success-soft) !important;
+  color: var(--success-text) !important;
+}
+
+.pep-premium-page .pep-premium-workspace {
+  grid-template-columns: minmax(0,1.65fr) minmax(320px,.75fr) !important;
+  gap: 15px !important;
+  align-items: start;
+}
+
+.pep-premium-page .pep-premium-workspace > .card {
+  padding: 18px !important;
+  border-radius: 20px;
+}
+
+.pep-premium-page .soap-section {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e6e7e1;
+  border-radius: 15px;
+  background: #fbfbf8;
+}
+
+.pep-premium-page .soap-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #485249;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: .015em;
+}
+
+.pep-premium-page .soap-title > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--brand-accent-soft);
+  color: var(--brand-primary-dark);
+  font-size: 11px;
+  font-weight: 840;
+}
+
+.pep-premium-page .soap-section textarea {
+  min-height: 88px;
+  border-radius: 11px;
+  background: #fff;
+  resize: vertical;
+}
+
+.pep-premium-page .vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(6,minmax(90px,1fr));
+  gap: 9px;
+}
+
+.pep-premium-page .vitals-grid .form-group { min-width: 0; }
+.pep-premium-page .vitals-grid input { min-width: 0; }
+
+.pep-premium-page #pep-imc {
+  background: #eef1eb !important;
+  color: var(--brand-primary-dark);
+}
+
+.pep-premium-page .timeline-list {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+.pep-premium-page .timeline-item {
+  position: relative;
+  padding: 12px 13px !important;
+  border: 1px solid #e3e5df !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+}
+
+.pep-premium-page .timeline-date {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.pep-premium-page .timeline-content { font-size: 12px; line-height: 1.45; }
+.pep-premium-page .timeline-content p { color: #485048; }
+
+/* Odontology premium workspace */
+.odontology-premium-page .odontology-premium-header {
+  padding-bottom: 2px;
+}
+
+.odontology-premium-page .odontology-premium-patient {
+  display: grid;
+  grid-template-columns: minmax(260px,.65fr) minmax(0,1.35fr);
+  align-items: end;
+  gap: 18px;
+  padding: 14px 16px !important;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg,#fff 0%,#f4f6f1 100%);
+}
+
+.odontology-premium-page #od-patient-summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-left: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+
+.odontology-premium-page .odontology-premium-tabs {
+  display: flex;
+  gap: 5px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 14px;
+  padding: 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: #eceee8;
+  overflow-x: auto;
+}
+
+.odontology-premium-page .odontology-premium-tabs button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.odontology-premium-page .odontology-premium-tabs button.active {
+  background: #fff;
+  color: var(--brand-primary-dark);
+  box-shadow: 0 2px 8px rgba(53,72,60,.08);
+}
+
+.odontology-premium-page .odontology-panel .card,
+.odontology-premium-page .operations-grid-2 > .card {
+  border-radius: 19px;
+}
+
+.odontology-premium-page .odontology-layout {
+  gap: 15px !important;
+  align-items: start;
+}
+
+.odontology-premium-page .odontogram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e8e9e3;
+}
+
+.odontology-premium-page .odontogram-grid {
+  gap: 7px !important;
+  padding: 12px;
+  border: 1px solid #e8e9e3;
+  border-radius: 15px;
+  background: #f8f9f5;
+}
+
+.odontology-premium-page .tooth-btn {
+  min-height: 38px;
+  border: 1px solid #d9ddd6 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #4a534c !important;
+  box-shadow: none !important;
+}
+
+.odontology-premium-page .tooth-btn:hover {
+  border-color: #aebdad !important;
+  background: #f2f6f0 !important;
+}
+
+.odontology-premium-page .tooth-btn.active {
+  border-color: var(--brand-primary) !important;
+  background: var(--brand-primary) !important;
+  color: #fff !important;
+}
+
+.odontology-premium-page .tooth-btn.has-condition:not(.active) {
+  border-color: #d0a568 !important;
+  box-shadow: inset 0 -3px 0 #d0a568 !important;
+}
+
+.odontology-premium-page .supernumerary-toolbar,
+.odontology-premium-page .odontology-selection {
+  margin-top: 12px;
+  padding: 10px 12px !important;
+  border: 1px solid #e5e7e1;
+  border-radius: 12px;
+  background: #fbfbf8;
+}
+
+.odontology-premium-page .supernumerary-strip { gap: 7px; }
+.odontology-premium-page .supernumerary-btn {
+  border-radius: 10px !important;
+  border-color: #dfe2dc !important;
+  background: #fff !important;
+}
+
+.odontology-premium-page .odontology-condition-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.odontology-premium-page #od-plan-items tr,
+.odontology-premium-page #od-budget-list button {
+  transition: background .12s ease, border-color .12s ease;
+}
+
+.odontology-premium-page #od-budget-detail {
+  min-height: 180px;
+  border: 1px dashed #d6dad3;
+  border-radius: 13px;
+  background: #fafbf8;
+  padding: 12px;
+}
+
+/* Finance premium workspace */
+.finance-premium-page .operations-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(150px,1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.finance-premium-page .operations-kpi,
+.finance-premium-page .operations-kpi-card,
+.finance-premium-page #fin-kpis > * {
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 16px !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.finance-premium-page .operations-grid-2 {
+  gap: 14px;
+  align-items: start;
+}
+
+.finance-premium-page .finance-premium-entry,
+.finance-premium-page .finance-premium-report,
+.finance-premium-page .finance-premium-ledger {
+  border-radius: 20px;
+}
+
+.finance-premium-page .finance-premium-entry {
+  border-top: 3px solid var(--brand-accent);
+}
+
+.finance-premium-page .finance-premium-entry .card-title,
+.finance-premium-page .finance-premium-report .card-title,
+.finance-premium-page .finance-premium-ledger .card-title {
+  margin-bottom: 13px;
+  font-size: 14px;
+  letter-spacing: -.015em;
+}
+
+.finance-premium-page .finance-premium-entry .form-row {
+  gap: 10px;
+}
+
+.finance-premium-page .finance-premium-report {
+  background: linear-gradient(150deg,#fff 0%,#f5f7f2 100%);
+}
+
+.finance-premium-page .operations-report-list {
+  display: grid;
+  gap: 8px;
+}
+
+.finance-premium-page .operations-report-list > * {
+  border-radius: 11px;
+}
+
+.finance-premium-page .finance-premium-ledger {
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.finance-premium-page .operations-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e8e9e3;
+}
+
+.finance-premium-page .operations-toolbar select {
+  height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #fffefb;
+  color: var(--text-primary);
+  padding: 0 10px;
+}
+
+.finance-premium-page .operations-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.finance-premium-page .operations-status.status-ok { background: var(--success-soft); color: var(--success-text); }
+.finance-premium-page .operations-status.status-warn { background: var(--warning-soft); color: var(--warning-text); }
+.finance-premium-page .operations-status.status-danger { background: var(--danger-soft); color: var(--danger-text); }
+.finance-premium-page .operations-status.status-muted { background: #eceeea; color: #6f7771; }
+
+.finance-premium-page .table-wrapper {
+  border: 1px solid #e7e8e2;
+  border-radius: 13px;
+  overflow: auto;
+}
+
+.finance-premium-page .table-wrapper table { margin: 0; }
+.finance-premium-page .table-wrapper thead { position: sticky; top: 0; z-index: 2; }
+
+/* Shared control cleanup for the redesigned operational modules */
+.agenda-premium-page .btn,
+.pep-premium-page .btn,
+.odontology-premium-page .btn,
+.finance-premium-page .btn {
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.agenda-premium-page .btn-sm,
+.pep-premium-page .btn-sm,
+.odontology-premium-page .btn-sm,
+.finance-premium-page .btn-sm {
+  padding-left: 11px;
+  padding-right: 11px;
+}
+
+.agenda-premium-page .form-group input,
+.agenda-premium-page .form-group select,
+.agenda-premium-page .form-group textarea,
+.pep-premium-page .form-group input,
+.pep-premium-page .form-group select,
+.pep-premium-page .form-group textarea,
+.odontology-premium-page .form-group input,
+.odontology-premium-page .form-group select,
+.odontology-premium-page .form-group textarea,
+.finance-premium-page .form-group input,
+.finance-premium-page .form-group select,
+.finance-premium-page .form-group textarea {
+  border-radius: 10px;
+}
+
+@media (max-width: 1180px) {
+  .agenda-premium-page .espera-board { grid-template-columns: 1fr; }
+  .pep-premium-page .pep-premium-workspace { grid-template-columns: 1fr !important; }
+  .pep-premium-page .pep-patient-info { grid-template-columns: repeat(3,minmax(120px,1fr)); }
+  .pep-premium-page .vitals-grid { grid-template-columns: repeat(3,minmax(100px,1fr)); }
+  .odontology-premium-page .odontology-premium-patient { grid-template-columns: 1fr; }
+  .odontology-premium-page #od-patient-summary { border-left: 0; border-top: 1px solid var(--border-subtle); padding: 10px 0 0; }
+  .finance-premium-page .operations-kpi-grid { grid-template-columns: repeat(2,minmax(150px,1fr)); }
+}
+
+@media (max-width: 860px) {
+  .agenda-premium-header,
+  .odontology-premium-header,
+  .finance-premium-header { align-items: stretch !important; flex-direction: column; }
+  .agenda-premium-page .agenda-premium-toolbar { align-items: stretch; flex-direction: column; }
+  .agenda-premium-page .agenda-date-nav { flex-wrap: wrap; }
+  .agenda-premium-page .timeline-slot { grid-template-columns: 52px minmax(0,1fr); }
+  .agenda-premium-page .appointment-card { align-items: flex-start; flex-direction: column; }
+  .pep-premium-page .pep-patient-info { grid-template-columns: repeat(2,minmax(110px,1fr)); }
+  .pep-premium-page .vitals-grid { grid-template-columns: repeat(2,minmax(100px,1fr)); }
+  .odontology-premium-page .odontology-layout,
+  .odontology-premium-page .operations-grid-2,
+  .finance-premium-page .operations-grid-2 { grid-template-columns: 1fr !important; }
+  .finance-premium-page .operations-toolbar { align-items: stretch; flex-direction: column; }
+}
+
+@media (max-width: 620px) {
+  .pep-premium-page .pep-patient-info,
+  .pep-premium-page .vitals-grid,
+  .finance-premium-page .operations-kpi-grid { grid-template-columns: 1fr; }
+  .agenda-premium-page .timeline-slot { grid-template-columns: 44px minmax(0,1fr); }
+  .agenda-premium-page #timeline-slots-container { padding-left: 8px; padding-right: 8px; }
+}
