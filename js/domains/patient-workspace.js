@@ -12,6 +12,7 @@
 
   let currentTab = 'resumo';
   let currentPatientId = null;
+  const workspaceDrafts = new Map();
 
   function normalizeTab(tab) {
     return TABS.some(item => item.id === tab) ? tab : 'resumo';
@@ -21,6 +22,43 @@
     return typeof root.escapeHTML === 'function'
       ? root.escapeHTML(value)
       : String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  }
+
+  function workspaceDraftKey(tab) {
+    return `${currentPatientId || 'none'}:${normalizeTab(tab)}`;
+  }
+
+  function captureWorkspaceDraft(tab = currentTab) {
+    if (typeof document === 'undefined' || !currentPatientId || normalizeTab(tab) === 'pep') return;
+    const content = document.getElementById('patient-workspace-content');
+    if (!content || content.style.display === 'none') return;
+    const snapshot = {};
+    content.querySelectorAll('input, select, textarea, [contenteditable="true"]').forEach((control, index) => {
+      const key = control.id || control.getAttribute('name') || `control-${index}`;
+      if (control.matches('[contenteditable="true"]')) {
+        snapshot[key] = { kind: 'html', value: control.innerHTML };
+      } else if (control.type === 'checkbox' || control.type === 'radio') {
+        snapshot[key] = { kind: 'checked', value: Boolean(control.checked) };
+      } else {
+        snapshot[key] = { kind: 'value', value: control.value };
+      }
+    });
+    if (Object.keys(snapshot).length) workspaceDrafts.set(workspaceDraftKey(tab), snapshot);
+  }
+
+  function restoreWorkspaceDraft(tab = currentTab) {
+    if (typeof document === 'undefined' || !currentPatientId || normalizeTab(tab) === 'pep') return;
+    const content = document.getElementById('patient-workspace-content');
+    const snapshot = workspaceDrafts.get(workspaceDraftKey(tab));
+    if (!content || !snapshot) return;
+    content.querySelectorAll('input, select, textarea, [contenteditable="true"]').forEach((control, index) => {
+      const key = control.id || control.getAttribute('name') || `control-${index}`;
+      const saved = snapshot[key];
+      if (!saved) return;
+      if (saved.kind === 'html') control.innerHTML = saved.value;
+      else if (saved.kind === 'checked') control.checked = Boolean(saved.value);
+      else control.value = saved.value;
+    });
   }
 
   function ensureShell() {
@@ -48,7 +86,7 @@
     if (!container) return;
     container.innerHTML = TABS.map(tab => `
       <button type="button" class="btn btn-sm ${tab.id === currentTab ? 'btn-primary' : 'btn-secondary'}"
-        data-workspace-tab="${tab.id}">${esc(tab.label)}</button>`).join('');
+        data-workspace-tab="${tab.id}" aria-pressed="${tab.id === currentTab ? 'true' : 'false'}">${esc(tab.label)}</button>`).join('');
     container.querySelectorAll('[data-workspace-tab]').forEach(button => {
       button.addEventListener('click', () => setPatientWorkspaceTab(button.dataset.workspaceTab));
     });
@@ -133,10 +171,13 @@
     const renderer = renderers[currentTab] || renderers.resumo;
     renderer();
     if (!content.innerHTML.trim()) content.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center;">Conteúdo indisponível.</div>';
+    restoreWorkspaceDraft(currentTab);
   }
 
   function setPatientWorkspaceTab(tab) {
-    currentTab = normalizeTab(tab);
+    const nextTab = normalizeTab(tab);
+    if (nextTab !== currentTab) captureWorkspaceDraft(currentTab);
+    currentTab = nextTab;
     renderCurrentTab();
     return currentTab;
   }
@@ -146,14 +187,18 @@
     if (!shell) return;
     if (!patientId) {
       currentPatientId = null;
+      workspaceDrafts.clear();
       shell.style.display = 'none';
       const pepBody = document.getElementById('pep-corpo');
       if (pepBody) pepBody.style.display = 'none';
       return;
     }
-    if (String(currentPatientId) !== String(patientId)) currentTab = normalizeTab(preferredTab || 'resumo');
-    else if (preferredTab) currentTab = normalizeTab(preferredTab);
+    const samePatient = String(currentPatientId) === String(patientId);
+    const nextTab = preferredTab ? normalizeTab(preferredTab) : samePatient ? currentTab : 'resumo';
+    if (samePatient && nextTab !== currentTab) captureWorkspaceDraft(currentTab);
+    if (!samePatient) workspaceDrafts.clear();
     currentPatientId = Number(patientId);
+    currentTab = nextTab;
     shell.style.display = 'block';
     renderCurrentTab();
   }
@@ -170,7 +215,10 @@
     return normalized;
   }
 
-  const api = { TABS, normalizeTab, openPatientWorkspace, refreshPatientWorkspace, setPatientWorkspaceTab };
+  const api = {
+    TABS, normalizeTab, openPatientWorkspace, refreshPatientWorkspace, setPatientWorkspaceTab,
+    captureWorkspaceDraft, restoreWorkspaceDraft
+  };
   root.PlennusPatientWorkspace = api;
   root.openPatientWorkspace = openPatientWorkspace;
   root.refreshPatientWorkspace = refreshPatientWorkspace;

@@ -1,3 +1,5 @@
+let agendaPatientSheetReturnFocus = null;
+
 function atualizarInputsDataAgenda() {
   const filtroInput = document.getElementById('agenda-data-filtro');
   if (filtroInput) filtroInput.value = formatarDataParaIso(agendaDataAtual);
@@ -89,6 +91,138 @@ function calcularTempoDecorridoMinutos(horaInicioStr) {
   return PlennusValidation.calcularMinutosDecorrido(horaInicioStr);
 }
 
+function canAccessPatientClinicalWorkspaceFromAgenda() {
+  const role = typeof currentUser !== 'undefined' ? currentUser?.nivel : null;
+  return Boolean(window.PlennusAccessControl?.canAccessPatientClinicalWorkspace?.(role));
+}
+
+function agendaPatientTrigger(row, fallback = 'Paciente') {
+  const nome = escapeHTML(row.paciente || fallback);
+  return `<button type="button" class="agenda-patient-trigger" aria-label="Abrir resumo de ${nome}" onclick="openAgendaPatientSheet(${Number(row.paciente_id)}, ${Number(row.id)})">${nome}</button>`;
+}
+
+function ensureAgendaPatientSheet() {
+  let sheet = document.getElementById('agenda-patient-sheet');
+  if (sheet) return sheet;
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'agenda-patient-sheet-backdrop';
+  backdrop.className = 'agenda-patient-sheet-backdrop';
+  backdrop.hidden = true;
+  backdrop.addEventListener('click', closeAgendaPatientSheet);
+
+  sheet = document.createElement('aside');
+  sheet.id = 'agenda-patient-sheet';
+  sheet.className = 'agenda-patient-sheet';
+  sheet.hidden = true;
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-labelledby', 'agenda-patient-sheet-title');
+  sheet.innerHTML = `
+    <div class="agenda-patient-sheet-header">
+      <div><span class="shell-eyebrow">Paciente</span><h3 id="agenda-patient-sheet-title">Resumo do paciente</h3></div>
+      <button type="button" class="agenda-patient-sheet-close" aria-label="Fechar resumo do paciente">×</button>
+    </div>
+    <div id="agenda-patient-sheet-content" class="agenda-patient-sheet-content"></div>`;
+  sheet.querySelector('.agenda-patient-sheet-close').addEventListener('click', closeAgendaPatientSheet);
+  sheet.addEventListener('keydown', handleAgendaPatientSheetKeydown);
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(sheet);
+  return sheet;
+}
+
+function handleAgendaPatientSheetKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeAgendaPatientSheet();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const sheet = document.getElementById('agenda-patient-sheet');
+  if (!sheet) return;
+  const focusable = Array.from(sheet.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function openAgendaPatientSheet(patientId, agendaId) {
+  const patient = DB.query('SELECT * FROM pacientes WHERE id=?', [patientId])[0];
+  if (!patient) return alert('Paciente não encontrado.');
+  const appointment = agendaId ? DB.query(`
+    SELECT a.*, pr.nome as profissional, pr.especialidade
+    FROM agenda a
+    LEFT JOIN profissionais pr ON pr.id=a.profissional_id
+    WHERE a.id=?`, [agendaId])[0] : null;
+  const canAccessClinical = canAccessPatientClinicalWorkspaceFromAgenda();
+  const sheet = ensureAgendaPatientSheet();
+  const backdrop = document.getElementById('agenda-patient-sheet-backdrop');
+  const content = document.getElementById('agenda-patient-sheet-content');
+  const phone = patient.celular || patient.telefone || '-';
+  const address = [patient.logradouro, patient.numero, patient.bairro, patient.cidade, patient.uf].filter(Boolean).join(', ') || '-';
+  const clinicalContent = canAccessClinical
+    ? `<section class="agenda-patient-clinical" aria-label="Alertas clínicos">
+        <strong>Alertas clínicos</strong>
+        <p class="agenda-patient-clinical-alert"><strong>Alergias:</strong> ${escapeHTML(patient.alergias || 'Nenhuma registrada')}</p>
+        <span><strong>Comorbidades:</strong> ${escapeHTML(patient.comorbidades || 'Nenhuma registrada')}</span>
+        <span><strong>Medicamentos contínuos:</strong> ${escapeHTML(patient.medicamentos_continuos || 'Nenhum registrado')}</span>
+      </section>`
+    : `<section class="agenda-patient-clinical" aria-label="Acesso clínico restrito"><strong>Dados clínicos protegidos</strong><span>O prontuário e os alertas clínicos permanecem disponíveis somente ao perfil profissional autorizado.</span></section>`;
+  const pepAction = canAccessClinical && appointment?.profissional_id
+    ? `<button type="button" class="btn btn-primary" onclick="closeAgendaPatientSheet();abrirProntuarioDaAgenda(${Number(patient.id)}, ${Number(appointment.profissional_id)})">Abrir prontuário</button>`
+    : '';
+
+  content.innerHTML = `
+    <section class="agenda-patient-summary" aria-label="Identificação do paciente">
+      <strong>${escapeHTML(patient.nome || 'Paciente')}</strong>
+      <dl>
+        <dt>CPF</dt><dd>${escapeHTML(patient.cpf || '-')}</dd>
+        <dt>Nascimento</dt><dd>${escapeHTML(patient.data_nascimento || '-')}</dd>
+        <dt>Telefone</dt><dd>${escapeHTML(phone)}</dd>
+        <dt>E-mail</dt><dd>${escapeHTML(patient.email || '-')}</dd>
+        <dt>Endereço</dt><dd>${escapeHTML(address)}</dd>
+      </dl>
+    </section>
+    ${appointment ? `<section class="agenda-patient-appointment" aria-label="Agendamento atual">
+      <strong>Agendamento atual</strong>
+      <dl>
+        <dt>Data</dt><dd>${escapeHTML(appointment.data || '-')}</dd>
+        <dt>Hora</dt><dd>${escapeHTML(appointment.hora || '-')}</dd>
+        <dt>Profissional</dt><dd>${escapeHTML(appointment.profissional || '-')}</dd>
+        <dt>Status</dt><dd>${getStatusBadge(appointment.status)}</dd>
+      </dl>
+    </section>` : ''}
+    ${clinicalContent}
+    ${pepAction ? `<div>${pepAction}</div>` : ''}`;
+
+  agendaPatientSheetReturnFocus = document.activeElement;
+  if (backdrop) backdrop.hidden = false;
+  sheet.hidden = false;
+  document.body.classList.add('overlay-open');
+  requestAnimationFrame(() => sheet.classList.add('is-open'));
+  sheet.querySelector('.agenda-patient-sheet-close')?.focus();
+}
+
+function closeAgendaPatientSheet() {
+  const sheet = document.getElementById('agenda-patient-sheet');
+  const backdrop = document.getElementById('agenda-patient-sheet-backdrop');
+  if (!sheet) return;
+  sheet.classList.remove('is-open');
+  sheet.hidden = true;
+  if (backdrop) backdrop.hidden = true;
+  document.body.classList.remove('overlay-open');
+  if (agendaPatientSheetReturnFocus && typeof agendaPatientSheetReturnFocus.focus === 'function') agendaPatientSheetReturnFocus.focus();
+  agendaPatientSheetReturnFocus = null;
+}
+
 function carregarAgendaVisual() {
   const container = document.getElementById('timeline-slots-container');
   if (!container) return;
@@ -147,7 +281,7 @@ function carregarAgendaVisual() {
           <div class="appointment-card ${statusClass}">
             <div style="flex:1;">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <strong style="font-size:14px;color:#222;">${escapeHTML(r.paciente || 'Paciente')}</strong>
+                ${agendaPatientTrigger(r)}
                 ${getStatusBadge(r.status)}${chegadaHtml}
               </div>
               <div style="font-size:12px;color:#666;margin-top:4px;">
@@ -196,7 +330,7 @@ function carregarSalaEspera() {
     const tel = r.celular || r.telefone || '';
     return `
       <div class="espera-item" style="border-left:4px solid #1565C0;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><strong>${escapeHTML(r.paciente || '-')}</strong><span style="font-weight:700;color:#1565C0;">🕒 ${r.hora}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">${agendaPatientTrigger(r, '-')}<span style="font-weight:700;color:#1565C0;">🕒 ${r.hora}</span></div>
         <div style="font-size:12px;color:#555;margin-bottom:8px;">Dr(a): <strong>${escapeHTML(r.profissional || '-')}</strong>${r.observacao ? `<br><small class="text-muted">${escapeHTML(r.observacao)}</small>` : ''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-sm btn-warning" onclick="marcarChegadaEspera(${r.id})">🛎️ Marcar Chegada</button>
@@ -210,7 +344,7 @@ function carregarSalaEspera() {
     const minutos = calcularTempoDecorridoMinutos(r.chegada_em || r.hora);
     return `
       <div class="espera-item" style="border-left:4px solid #F57F17;background:#FFFDE7;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><strong>${escapeHTML(r.paciente || '-')}</strong><span style="font-weight:700;color:#E65100;">Previsto: ${r.hora}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">${agendaPatientTrigger(r, '-')}<span style="font-weight:700;color:#E65100;">Previsto: ${r.hora}</span></div>
         <div style="font-size:12px;color:#555;margin-bottom:6px;">Dr(a): <strong>${escapeHTML(r.profissional || '-')}</strong></div>
         <div style="margin-bottom:10px;"><span class="waiting-timer">⏳ Aguardando há ${minutos} min (Chegou às ${escapeHTML(r.chegada_em || r.hora)})</span></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><button class="btn btn-sm btn-primary" onclick="chamarParaAtendimento(${r.id}, ${r.paciente_id}, ${r.profissional_id})">🩺 Chamar p/ Atendimento</button><button class="btn btn-sm btn-info" onclick="abrirProntuarioDaAgenda(${r.paciente_id}, ${r.profissional_id})">📋 Ver PEP</button></div>
@@ -221,7 +355,7 @@ function carregarSalaEspera() {
     const isAtendimento = r.status === 'atendimento';
     return `
       <div class="espera-item" style="border-left:4px solid ${isAtendimento ? '#E65100' : '#2E7D32'};background:${isAtendimento ? '#FFF3E0' : '#F1F8E9'};">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><strong>${escapeHTML(r.paciente || '-')}</strong><span>${getStatusBadge(r.status)}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">${agendaPatientTrigger(r, '-')}<span>${getStatusBadge(r.status)}</span></div>
         <div style="font-size:12px;color:#555;margin-bottom:8px;">Horário: <strong>${r.hora}</strong> • Dr(a): <strong>${escapeHTML(r.profissional || '-')}</strong></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><button class="btn btn-sm btn-info" onclick="abrirProntuarioDaAgenda(${r.paciente_id}, ${r.profissional_id})">📋 Abrir PEP</button>${isAtendimento ? `<button class="btn btn-sm btn-success" onclick="mudarStatus(${r.id}, 'realizado')">✔️ Concluir Atendimento</button>` : ''}</div>
       </div>`;
@@ -236,7 +370,7 @@ function carregarAgenda() {
     LEFT JOIN profissionais pr ON pr.id=a.profissional_id
     ORDER BY a.data DESC, a.hora`);
   document.getElementById('tabela-agenda').innerHTML = rows.map(r => `
-    <tr><td>${r.id}</td><td>${r.data}</td><td><strong>${r.hora}</strong></td><td>${escapeHTML(r.paciente || '-')}</td><td>${escapeHTML(r.profissional || '-')}</td><td>${getStatusBadge(r.status)}</td>
+    <tr><td>${r.id}</td><td>${r.data}</td><td><strong>${r.hora}</strong></td><td>${agendaPatientTrigger(r, '-')}</td><td>${escapeHTML(r.profissional || '-')}</td><td>${getStatusBadge(r.status)}</td>
       <td>${(r.celular || r.telefone) ? `<button class="btn btn-sm btn-whatsapp" title="WhatsApp" onclick="enviarMensagemWhatsApp(${r.id})">💬</button>` : ''}
         ${(r.status === 'agendado' || r.status === 'confirmado') ? `<button class="btn btn-warning btn-sm" title="Marcar Chegada" onclick="marcarChegadaEspera(${r.id})">🛎️</button>` : ''}
         <button class="btn btn-success btn-sm" title="Confirmar" onclick="mudarStatus(${r.id},'confirmado')">✓</button>

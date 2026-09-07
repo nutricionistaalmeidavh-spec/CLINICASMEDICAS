@@ -1,3 +1,14 @@
+function canOpenClinicalWorkspace() {
+  const role = typeof currentUser !== 'undefined' ? currentUser?.nivel : null;
+  return Boolean(window.PlennusAccessControl?.canAccessPatientClinicalWorkspace?.(role));
+}
+
+function requireClinicalWorkspaceAccess() {
+  if (canOpenClinicalWorkspace()) return true;
+  alert('Acesso clínico restrito ao profissional autorizado.');
+  return false;
+}
+
 function carregarSelectsPep() {
   const pacs = DB.query('SELECT id, nome, cpf FROM pacientes WHERE ativo=1 ORDER BY nome');
   const profs = DB.query('SELECT id, nome FROM profissionais WHERE ativo=1 ORDER BY nome');
@@ -152,6 +163,7 @@ function editarAlergiasRapido() {
 }
 
 function abrirProntuarioPaciente(id) {
+  if (!requireClinicalWorkspaceAccess()) return;
   navegar('prontuario');
   document.getElementById('pep-paciente').value = id;
   selecionarPacientePep(id);
@@ -159,6 +171,7 @@ function abrirProntuarioPaciente(id) {
 }
 
 function abrirProntuarioDaAgenda(pacId, profId) {
+  if (!requireClinicalWorkspaceAccess()) return;
   navegar('prontuario');
   document.getElementById('pep-paciente').value = pacId;
   if (profId) document.getElementById('pep-profissional').value = profId;

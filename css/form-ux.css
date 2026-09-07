@@ -1,0 +1,38 @@
+/* Shared form UX — uses the existing Sage palette and clinical operational tokens. */
+.form-group:has(input[required], select[required], textarea[required]) > label::after,
+.field-group:has(input[required], select[required], textarea[required]) > label::after,
+label:has(> input[required], > select[required], > textarea[required])::after {
+  content: ' *';
+  color: var(--danger, #A86046);
+  font-weight: 800;
+}
+
+.form-validation-message {
+  display: block;
+  margin-top: 4px;
+  color: var(--danger, #A86046);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--danger, #A86046) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger, #A86046) 12%, transparent) !important;
+}
+
+.form-actions .btn-primary,
+.agenda-premium-form .btn-primary,
+.patients-editor-card .btn-primary,
+.pep-premium-workspace .btn-primary,
+.professionals-premium-form .btn-primary,
+.procedures-premium-form .btn-primary {
+  font-weight: 750;
+}
+
+.form-group:focus-within > label,
+.field-group:focus-within > label {
+  color: var(--brand-primary, #35483C);
+}
