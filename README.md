@@ -18,7 +18,7 @@ A aplicação foi estruturada para concentrar a jornada operacional da clínica 
 - Atualização automática via GitHub Releases
 - CI, testes e build Windows automatizados no GitHub Actions
 
-> O núcleo clínico funciona localmente. Recursos que dependem de serviços externos, como atualização do aplicativo e abertura do WhatsApp, exigem conexão com a internet.
+> O núcleo clínico funciona localmente. Recursos que dependem de serviços externos, como atualização do aplicativo, abertura do WhatsApp, certificado digital e emissão fiscal, exigem conexão com a internet.
 
 ## Módulos
 
@@ -98,6 +98,19 @@ A aplicação foi estruturada para concentrar a jornada operacional da clínica 
 - histórico por competência
 - vínculo com paciente, profissional e procedimento
 
+### Certificado digital e emissão fiscal opcional
+
+- módulo de certificado digital reutilizável, atualmente configurado com a loja parceira UTW/ArtiSys
+- emissão/renovação de e-CNPJ A1 e e-CPF A1 ocorre fora do Plennus; dados da certificação não são enviados ao banco clínico
+- módulo fiscal reutilizável com provider inicial Focus NFe
+- a clínica conecta **a própria conta e o próprio token** do provedor; contratação e cobrança do serviço fiscal não são assumidas pelo Plennus
+- suporte inicial aos fluxos comuns de NFS-e municipal e NFS-e Nacional via Focus: emissão, consulta e cancelamento
+- perfil fiscal configurável pela clínica conforme orientação da contabilidade; o sistema não escolhe CNAE, item de serviço, código tributário, regime ou alíquota automaticamente
+- o token Focus é armazenado em `userData/fiscal-connection.enc`, criptografado com `safeStorage`, fora do renderer e fora do banco SQLite clínico
+- o token fiscal não é incluído no backup portátil do banco; ao migrar para outro computador, a conta fiscal deve ser reconectada
+
+> Municípios e provedores de NFS-e podem exigir campos e regras adicionais. A integração cobre o contrato comum do provider, mas a homologação fiscal real deve ser validada com a conta da clínica e seus dados tributários antes de usar produção.
+
 ### Estoque clínico
 
 - cadastro de materiais e insumos
@@ -152,6 +165,7 @@ A aplicação foi estruturada para concentrar a jornada operacional da clínica 
 - Node.js desabilitado no renderer
 - bloqueio de popups e navegação arbitrária
 - permissões do Chromium negadas por padrão
+- credenciais fiscais isoladas no processo principal do Electron
 
 ## Acesso inicial
 
@@ -253,6 +267,7 @@ Electron main process
 ├── persistência criptografada
 ├── backup/restore
 ├── arquivos/documentos
+├── credencial e cliente do provider fiscal
 └── updater
 
 Preload
@@ -266,6 +281,10 @@ Renderer
 │   ├── modelos clínicos/operacionais
 │   └── navegação/shell
 │
+├── modules
+│   ├── certificate-digital
+│   └── fiscal
+│
 └── domains
     ├── dashboard
     ├── pacientes
@@ -277,12 +296,15 @@ Renderer
     ├── estoque
     ├── CRM
     ├── WhatsApp
-    └── odontologia
+    ├── odontologia
+    └── commercial-services (adaptador Plennus)
 ```
 
 ## Observações de produto
 
-- NFS-e não faz parte do escopo atual.
-- Assinatura eletrônica externa não faz parte do escopo atual.
+- NFS-e é um recurso opcional e depende de uma conta fiscal externa configurada pela clínica.
+- A compra de certificado A1 pela loja parceira não conecta automaticamente esse certificado ao provedor fiscal; a configuração exigida pelo provider continua sendo responsabilidade da conta da clínica.
+- NF-e/NFC-e para venda de produtos não faz parte desta entrega inicial.
+- Assinatura eletrônica externa de documentos clínicos não faz parte do escopo atual.
 - O desktop mantém arquitetura local-first e não depende de Cloudflare para atualizações.
 - Atualizações do desktop são distribuídas por GitHub Releases.
