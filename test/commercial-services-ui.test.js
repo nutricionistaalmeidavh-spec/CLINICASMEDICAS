@@ -6,6 +6,7 @@ const path = require('node:path');
 const fiscalUiPath = path.join(__dirname, '..', 'js/modules/fiscal/fiscal-ui.js');
 const adapterPath = path.join(__dirname, '..', 'js/domains/commercial-services.js');
 const appPath = path.join(__dirname, '..', 'js/app.js');
+const navigationPath = path.join(__dirname, '..', 'js/core/navigation.js');
 
 const filesExist = fs.existsSync(fiscalUiPath) && fs.existsSync(adapterPath);
 
@@ -18,10 +19,12 @@ if (filesExist) {
   const fiscalUi = fs.readFileSync(fiscalUiPath, 'utf8');
   const adapter = fs.readFileSync(adapterPath, 'utf8');
   const app = fs.readFileSync(appPath, 'utf8');
+  const navigation = fs.readFileSync(navigationPath, 'utf8');
 
-  test('app loads commercial services after core initialization', () => {
-    assert.match(app, /commercial-services\.js/);
-    assert.match(app, /ensureCommercialServices/);
+  test('commercial services follow the existing domain-loader architecture', () => {
+    assert.match(navigation, /js\/domains\/commercial-services\.js/);
+    assert.doesNotMatch(app, /ensureCommercialServices/);
+    assert.match(app, /PlennusCommercialServices\?\.setup/);
   });
 
   test('adapter mounts certificate in settings and fiscal controls in settings and finance', () => {
