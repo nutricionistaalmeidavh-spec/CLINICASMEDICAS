@@ -27,6 +27,11 @@ function sqliteAdapter(database, professionalId = 2) {
   };
 }
 
+function columns(database, table) {
+  const result = database.exec(`PRAGMA table_info(${table})`);
+  return new Set((result?.[0]?.values || []).map(row => String(row[1])));
+}
+
 test('supranumerary model generates stable FDI labels and monotonic indexes', () => {
   assert.equal(model.validateReferenceTooth(11), 11);
   assert.equal(model.validateReferenceTooth('55'), 55);
@@ -57,9 +62,33 @@ test('schema migration v4 adds dental element identity without replacing legacy 
   assert.match(legacy, /dente INTEGER/);
 });
 
+test('real legacy professional database at v3 migrates to v4 with additive dental columns', async () => {
+  const SQL = await initSqlJs();
+  const database = new SQL.Database();
+  database.run('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+  database.run('CREATE TABLE usuarios (id INTEGER PRIMARY KEY)');
+  database.run('CREATE TABLE profissionais (id INTEGER PRIMARY KEY)');
+  database.run('CREATE TABLE odontogramas (id INTEGER PRIMARY KEY, paciente_id INTEGER)');
+  database.run('CREATE TABLE odontograma_condicoes (id INTEGER PRIMARY KEY, odontograma_id INTEGER, dente INTEGER, ativo INTEGER)');
+  database.run('CREATE TABLE plano_tratamento_itens (id INTEGER PRIMARY KEY, dente INTEGER)');
+  database.run('CREATE TABLE orcamento_odontologico_itens (id INTEGER PRIMARY KEY, dente INTEGER)');
+  database.run("INSERT INTO schema_migrations(version,name) VALUES (3,'block_b_odontology')");
+  database.run('PRAGMA user_version=3');
+
+  const result = await migrations.runMigrations({ database });
+  assert.deepEqual(result.applied, [4]);
+  assert.equal(Number(database.exec('PRAGMA user_version')[0].values[0][0]), 4);
+  assert.equal(database.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='odontograma_elementos'")[0].values[0][0], 'odontograma_elementos');
+  assert.equal(columns(database, 'odontograma_condicoes').has('elemento_dental_id'), true);
+  assert.equal(columns(database, 'plano_tratamento_itens').has('elemento_dental_id'), true);
+  assert.equal(columns(database, 'orcamento_odontologico_itens').has('elemento_dental_id'), true);
+  assert.equal(columns(database, 'orcamento_odontologico_itens').has('rotulo_dental'), true);
+  database.close();
+});
+
 test('supernumerary schema columns are repaired idempotently after migration registration', () => {
   const calls = [];
-  const columns = new Map([
+  const schema = new Map([
     ['odontograma_condicoes', new Set(['id', 'dente'])],
     ['plano_tratamento_itens', new Set(['id', 'dente'])],
     ['orcamento_odontologico_itens', new Set(['id', 'dente'])]
@@ -68,14 +97,14 @@ test('supernumerary schema columns are repaired idempotently after migration reg
     query(sql) {
       const table = /PRAGMA table_info\(([^)]+)\)/i.exec(sql)?.[1];
       if (!table) return [];
-      return [...(columns.get(table) || [])].map(name => ({ name }));
+      return [...(schema.get(table) || [])].map(name => ({ name }));
     },
     run(sql) {
       calls.push(sql);
       const match = /ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)/i.exec(sql);
       if (match) {
-        if (!columns.has(match[1])) columns.set(match[1], new Set());
-        columns.get(match[1]).add(match[2]);
+        if (!schema.has(match[1])) schema.set(match[1], new Set());
+        schema.get(match[1]).add(match[2]);
       }
     }
   };
@@ -154,12 +183,13 @@ test('renderer loads supernumerary modules before odontology integration', () =>
   assert.ok(odontologyIndex > dbIndex);
 });
 
-test('odontology keeps FDI compatibility while persisting supernumerary identity through plan and budget', () => {
+test('odontology keeps FDI compatibility and snapshots supernumerary identity through plan, budget and charge', () => {
   const source = read('js/domains/odontology.js');
-  assert.match(source, /elemento_dental_id/);
-  assert.match(source, /rotulo_dental/);
-  assert.match(source, /11-SN1|SN\$\{|makeLabel|labelForElement/);
   assert.match(source, /AND elemento_dental_id IS NULL/);
+  assert.match(source, /plano_tratamento_itens \(plano_id,procedimento_id,profissional_id,descricao,dente,face,elemento_dental_id/);
+  assert.match(source, /orcamento_odontologico_itens \(orcamento_id,plano_item_id,descricao,dente,face,elemento_dental_id,rotulo_dental/);
+  assert.match(source, /budgetItem\.rotulo_dental \|\| dentalLabelForItem\(item\)/);
+  assert.match(source, /labelForElement/);
 });
 
 test('backup V3 remains SQLite-composite and does not enumerate dental tables', () => {
