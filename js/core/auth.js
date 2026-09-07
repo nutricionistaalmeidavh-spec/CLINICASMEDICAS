@@ -1,6 +1,10 @@
 (function (root) {
-  async function requireDefaultPasswordReplacement(userRow, suppliedPassword) {
+  async function requireDefaultPasswordReplacement(userRow, suppliedPassword, { remote = false } = {}) {
     if (suppliedPassword !== '123') return true;
+    if (remote) {
+      alert('Esta conta ainda usa a senha inicial. Altere a senha no computador Hub antes de continuar usando o acesso pela rede.');
+      return false;
+    }
     const nova = prompt('Esta conta ainda usa a senha inicial do sistema. Defina agora uma nova senha com pelo menos 10 caracteres:');
     if (nova == null) return false;
     if (nova.length < 10 || nova === '123') {
@@ -28,7 +32,7 @@
     const passwordHash = await root.hashPassword(pass);
     if (rows.length && rows[0].senha !== passwordHash) rows.length = 0;
     if (!rows.length) return { ok: false, error: 'Usuário ou senha inválidos.' };
-    return { ok: true, user: rows[0], session: null };
+    return { ok: true, user: rows[0], session: null, remote: false };
   }
 
   async function authenticateLocally(user, pass) {
@@ -39,11 +43,34 @@
     try {
       if (root.DB?.activateSession && result.session) await root.DB.activateSession(result.session);
       const row = root.DB.query('SELECT * FROM usuarios WHERE id=?', [result.user.id])[0];
-      return { ok: true, user: row || result.user, session: result.session };
+      return { ok: true, user: row || result.user, session: result.session, remote: false };
     } catch (error) {
       if (result.session?.token) await isolationApi.endSession?.(result.session.token).catch(() => {});
       return { ok: false, error: error.message };
     }
+  }
+
+  async function authenticateRemoteProfessional(user, pass) {
+    if (!root.PlennusClinicNetwork?.authenticateRemoteProfessional) {
+      return { ok: false, error: 'Cliente Clinic Network ainda não está disponível.' };
+    }
+    try {
+      const result = await root.PlennusClinicNetwork.authenticateRemoteProfessional(user, pass);
+      return { ...result, remote: true };
+    } catch (error) {
+      return { ok: false, error: error.message, remote: true };
+    }
+  }
+
+  async function resolveAuthentication(user, pass) {
+    let network = null;
+    try { network = await root.PlennusClinicNetwork?.status?.(); }
+    catch (_) { /* segue em modo local */ }
+    if (network?.mode === 'client') {
+      if (!network.paired) return { ok: false, error: 'Este computador está configurado como cliente, mas ainda não foi pareado com o Clinic Hub.', remote: true };
+      return authenticateRemoteProfessional(user, pass);
+    }
+    return authenticateLocally(user, pass);
   }
 
   async function fazerLogin() {
@@ -52,10 +79,11 @@
     const pass = document.getElementById('login-pass').value.trim();
     if (!user || !pass) return alert('Preencha usuário e senha.');
 
-    const authentication = await authenticateLocally(user, pass);
+    const authentication = await resolveAuthentication(user, pass);
     if (!authentication?.ok) return alert(authentication?.error || 'Usuário ou senha inválidos.');
-    if (!(await requireDefaultPasswordReplacement(authentication.user, pass))) {
+    if (!(await requireDefaultPasswordReplacement(authentication.user, pass, { remote: authentication.remote }))) {
       if (root.DB?.deactivateSession) await root.DB.deactivateSession();
+      if (authentication.remote) await root.PlennusClinicNetwork?.disconnect?.().catch(() => {});
       return;
     }
 
@@ -70,6 +98,7 @@
     aplicarPermissoesMenu(nivel);
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
+    root.PlennusClinicNetworkStatus?.refresh?.();
     navegar(root.PlennusAccessControl.getLandingPage(nivel));
   }
 
@@ -95,15 +124,18 @@
   async function fazerLogout() {
     if (!confirm('Deseja realmente sair?')) return;
     try {
+      if (root.PlennusClinicNetwork?.isClientMode?.()) await root.PlennusClinicNetwork.disconnect().catch(() => {});
       if (root.DB?.deactivateSession) await root.DB.deactivateSession();
     } finally {
       currentUser = null;
       document.getElementById('login-pass').value = '';
       document.getElementById('app-screen').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
+      root.PlennusClinicNetworkStatus?.refresh?.();
     }
   }
 
+  root.authenticateRemoteProfessional = authenticateRemoteProfessional;
   root.fazerLogin = fazerLogin;
   root.aplicarPermissoesMenu = aplicarPermissoesMenu;
   root.fazerLogout = fazerLogout;
