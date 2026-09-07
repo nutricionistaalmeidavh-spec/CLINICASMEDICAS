@@ -45,7 +45,7 @@ function discoverHubs({ timeoutMs = DISCOVERY_TIMEOUT_MS } = {}) {
   });
 }
 
-function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger = console } = {}) {
+function installClinicHub({ app, ipcMain, safeStorage, isolationService, BrowserWindow = null, logger = console } = {}) {
   if (!app || !ipcMain || !safeStorage || !isolationService) throw new Error('Clinic Network dependencies are required.');
   const networkRoot = path.join(app.getPath('userData'), 'data', 'network');
   const configStore = hubCore.createEncryptedJsonStore({ filePath: path.join(networkRoot, 'network-config.enc'), safeStorage });
@@ -63,18 +63,26 @@ function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger 
   let hubRuntime = null;
   let hubTransport = null;
   let hubController = null;
+  let clientOnline = false;
   const activeClients = new Map();
 
   const persistConfig = () => configStore.write(config);
   const persistHub = state => { hubState = state; hubStore.write(hubState); };
   const persistClient = () => clientStore.write(clientState);
 
+  function notifyHubMutation(change) {
+    if (!BrowserWindow?.getAllWindows) return;
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window?.isDestroyed?.()) window.webContents?.send?.('clinic-network:hub-mutation-applied', change);
+    }
+  }
+
   function sanitizedStatus() {
     return {
       mode: config.mode || 'standalone',
       hubRunning: Boolean(hubTransport),
       paired: Boolean(clientState.hub && clientState.deviceKeyHex),
-      connected: activeClients.size > 0,
+      connected: Boolean(clientOnline && activeClients.size > 0),
       pendingMutations: clientState.pendingMutations.length,
       lastSyncAt: config.lastSyncAt || null,
       hub: clientState.hub ? {
@@ -95,7 +103,10 @@ function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger 
       getBytes: isolationService.readClinicBytes,
       setBytes: isolationService.writeClinicBytes
     });
-    hubController = hubDatabase.createClinicHubRpcController({ databaseService });
+    hubController = hubDatabase.createClinicHubRpcController({
+      databaseService,
+      onMutationApplied: async change => notifyHubMutation(change)
+    });
     hubRuntime = hubCore.createHubRuntime({ state: hubState, persist: persistHub, rpcHandler: request => hubController.handle(request) });
     hubTransport = hubCore.createClinicHubTransport({
       runtime: hubRuntime,
@@ -147,6 +158,7 @@ function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger 
       address: hub.address, port: Number(hub.port)
     };
     clientState.deviceKeyHex = provisioned.deviceKeyHex;
+    clientOnline = false;
     config.mode = 'client';
     persistClient();
     persistConfig();
@@ -154,16 +166,22 @@ function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger 
   }
 
   async function clientRpc(action, payload) {
-    if (!clientState.hub || !clientState.deviceKeyHex) throw new Error('Este computador ainda não está pareado com o Clinic Hub.');
-    if (!protocol.isPrivateAddress(clientState.hub.address)) throw new Error('Endereço do Hub não pertence à rede privada.');
-    const key = Buffer.from(clientState.deviceKeyHex, 'hex');
-    const requestId = crypto.randomUUID();
-    const envelope = protocol.seal(key, clientState.deviceId, { requestId, timestamp: Date.now(), action, payload });
-    const response = await hubCore.postJson(clientState.hub.address, clientState.hub.port, '/rpc', { deviceId: clientState.deviceId, envelope });
-    const decoded = protocol.open(key, clientState.deviceId, response.envelope);
-    if (!protocol.isFreshTimestamp(decoded.timestamp)) throw new Error('Resposta do Hub expirada.');
-    if (decoded.requestId !== requestId) throw new Error('Resposta do Hub não corresponde à solicitação.');
-    return decoded.result;
+    try {
+      if (!clientState.hub || !clientState.deviceKeyHex) throw new Error('Este computador ainda não está pareado com o Clinic Hub.');
+      if (!protocol.isPrivateAddress(clientState.hub.address)) throw new Error('Endereço do Hub não pertence à rede privada.');
+      const key = Buffer.from(clientState.deviceKeyHex, 'hex');
+      const requestId = crypto.randomUUID();
+      const envelope = protocol.seal(key, clientState.deviceId, { requestId, timestamp: Date.now(), action, payload });
+      const response = await hubCore.postJson(clientState.hub.address, clientState.hub.port, '/rpc', { deviceId: clientState.deviceId, envelope });
+      const decoded = protocol.open(key, clientState.deviceId, response.envelope);
+      if (!protocol.isFreshTimestamp(decoded.timestamp)) throw new Error('Resposta do Hub expirada.');
+      if (decoded.requestId !== requestId) throw new Error('Resposta do Hub não corresponde à solicitação.');
+      clientOnline = true;
+      return decoded.result;
+    } catch (error) {
+      clientOnline = false;
+      throw error;
+    }
   }
 
   async function loginClient(event, credentials = {}) {
@@ -226,6 +244,7 @@ function installClinicHub({ app, ipcMain, safeStorage, isolationService, logger 
       try { await clientRpc('session.logout', { sessionToken: active.sessionToken }); } catch (_) { /* offline */ }
       activeClients.delete(event.sender.id);
     }
+    clientOnline = false;
     return { ok: true, network: sanitizedStatus() };
   }
 
