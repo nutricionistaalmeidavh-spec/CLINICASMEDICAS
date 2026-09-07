@@ -9,8 +9,27 @@
     'doc-paciente'
   ];
 
+  const ACTION_REQUIRED_CONTROLS = {
+    salvarPaciente: ['pac-nome'],
+    agendarConsulta: ['ag-paciente', 'ag-profissional', 'ag-data', 'ag-hora'],
+    salvarGrade: ['grade-prof', 'grade-inicio', 'grade-fim'],
+    salvarProfissional: ['prof-nome'],
+    salvarConvenio: ['conv-nome'],
+    salvarProcedimento: ['proc-nome'],
+    gerarDocumento: ['doc-paciente']
+  };
+
   let validationEventsBound = false;
   let observer = null;
+
+  function ensureStylesheet() {
+    if (typeof document === 'undefined' || document.querySelector('link[data-plennus-form-ux]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'css/form-ux.css';
+    link.dataset.plennusFormUx = '1';
+    document.head.appendChild(link);
+  }
 
   function associateFormLabels(scope = document) {
     if (!scope?.querySelectorAll) return;
@@ -89,6 +108,15 @@
     return true;
   }
 
+  function controlsForLegacyAction(button) {
+    const source = String(button?.getAttribute?.('onclick') || '');
+    const action = Object.keys(ACTION_REQUIRED_CONTROLS).find(name => source.includes(`${name}(`));
+    if (!action) return [];
+    return ACTION_REQUIRED_CONTROLS[action]
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+  }
+
   function bindInlineValidation() {
     if (validationEventsBound || typeof document === 'undefined') return;
     validationEventsBound = true;
@@ -112,6 +140,18 @@
     };
     document.addEventListener('input', clearWhenResolved, true);
     document.addEventListener('change', clearWhenResolved, true);
+
+    document.addEventListener('click', event => {
+      const button = event.target?.closest?.('button[onclick], input[type="button"][onclick]');
+      if (!button) return;
+      const controls = controlsForLegacyAction(button);
+      if (!controls.length) return;
+      const invalidControls = controls.filter(control => !validateControl(control));
+      if (!invalidControls.length) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      invalidControls[0].focus();
+    }, true);
   }
 
   function enhanceForms(scope = document) {
@@ -136,6 +176,7 @@
 
   function setup() {
     if (typeof document === 'undefined') return;
+    ensureStylesheet();
     enhanceForms(document);
     bindInlineValidation();
     observeDynamicForms();
@@ -143,12 +184,15 @@
 
   root.PlennusFormUX = {
     REQUIRED_CONTROL_IDS,
+    ACTION_REQUIRED_CONTROLS,
+    ensureStylesheet,
     associateFormLabels,
     markRequiredControls,
     bindInlineValidation,
     showInlineValidation,
     clearInlineValidation,
     validateControl,
+    controlsForLegacyAction,
     enhanceForms,
     setup
   };
