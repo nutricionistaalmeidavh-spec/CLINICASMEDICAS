@@ -24,25 +24,6 @@ function ensureFormUxScript() {
   });
 }
 
-function ensureCommercialServices() {
-  if (window.PlennusCommercialServices) return Promise.resolve();
-  const existing = document.querySelector('script[data-plennus-commercial-services]');
-  if (existing) {
-    return new Promise((resolve, reject) => {
-      existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', reject, { once: true });
-    });
-  }
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'js/domains/commercial-services.js';
-    script.dataset.plennusCommercialServices = '1';
-    script.addEventListener('load', resolve, { once: true });
-    script.addEventListener('error', () => reject(new Error('Não foi possível carregar os serviços comerciais.')), { once: true });
-    document.head.appendChild(script);
-  });
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     await DB.init();
@@ -57,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupTabs();
     window.PlennusGlobalSearch?.setupGlobalSearch();
-    await ensureCommercialServices();
     await window.PlennusCommercialServices?.setup();
     if (window.__initialPassword) {
       alert(`Primeiro acesso criado. Usuário: admin\nSenha temporária: ${window.__initialPassword}\nGuarde-a em local seguro.`);
