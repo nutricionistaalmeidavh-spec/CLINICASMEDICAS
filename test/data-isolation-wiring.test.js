@@ -38,7 +38,7 @@ test('preload exposes only session-bound professional database and clinical-file
 test('clinical image document rendering passes the authenticated professional session', () => {
   const source = read('js/domains/platform-documents.js');
   assert.match(source, /DB\?\.session\?\.\(\)\?\.token/);
-  assert.match(source, /readClinicalImage\(token, row\.caminho_arquivo\)/);
+  assert.match(source, /readClinicalImage\(token, filePath\)/);
   assert.doesNotMatch(source, /lerImagemClinicaParaDocumento\(row\.caminho_arquivo\)/);
 });
 
