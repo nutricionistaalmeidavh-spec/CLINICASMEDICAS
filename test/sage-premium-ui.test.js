@@ -109,3 +109,29 @@ test('odontology and finance preserve domain contracts while receiving the premi
     assert.match(css, /\.finance-premium-page/);
   }
 });
+
+test('administrative operations receive Sage Premium classes without changing legacy ids', () => {
+  for (const value of [
+    'professionals-premium-page', 'insurance-premium-page', 'documents-premium-page',
+    'cash-premium-page', 'payouts-premium-page'
+  ]) assert.match(shell, new RegExp(value));
+
+  for (const id of [
+    'page-profissionais','prof-id','prof-nome','prof-esp','prof-crm','prof-tel','prof-perc','tabela-profissionais',
+    'page-convenios','conv-id','conv-nome','conv-codigo','conv-tel','conv-contato','proc-nome','proc-valor','tabela-convenios','tabela-procedimentos',
+    'page-documentos','doc-tipo','doc-paciente','doc-profissional','doc-editor',
+    'page-caixa','cx-entradas','cx-saidas','cx-saldo','cx-tipo','cx-desc','cx-valor','cx-forma','tabela-caixa',
+    'page-repasses','rep-prof','rep-inicio','rep-fim','rep-bruto','rep-perc','tabela-repasses'
+  ]) assert.match(html, new RegExp(`id="${id}"`));
+});
+
+test('admin operations stylesheet defines premium workspaces and responsive behavior', () => {
+  assert.ok(fs.existsSync(moduleCssPath), 'premium module stylesheet must exist');
+  const css = read('css/sage-premium-modules.css');
+  for (const marker of [
+    'Administrative operations premium workspace',
+    '.professionals-premium-page', '.insurance-premium-page', '.documents-premium-page',
+    '.cash-premium-page', '.payouts-premium-page', '.documents-premium-editor',
+    '.cash-premium-summary', '.payouts-premium-ledger'
+  ]) assert.match(css, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
