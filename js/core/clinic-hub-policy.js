@@ -10,7 +10,7 @@ const PROFESSIONAL_SNAPSHOT_TABLES = Object.freeze([
 ]);
 
 const ALLOWED_APPOINTMENT_STATUSES = new Set([
-  'agendado', 'confirmado', 'espera', 'atendimento', 'em_atendimento', 'realizado', 'finalizado', 'cancelado', 'faltou'
+  'atendimento', 'em_atendimento', 'realizado', 'finalizado'
 ]);
 
 const SENSITIVE_CONFIG_PATTERN = /(api[_-]?key|token|secret|senha|password|credential|oauth|client[_-]?secret)/i;
@@ -41,35 +41,12 @@ function requirePositiveId(value, field) {
 function validateAgendaUpdateStatus(payload) {
   requireMutationId(payload);
   requirePositiveId(payload?.appointmentId, 'appointmentId');
-  if (!ALLOWED_APPOINTMENT_STATUSES.has(String(payload?.status || ''))) throw new Error('Status de agenda inválido.');
-  if (payload.chegadaEm != null && !/^\d{2}:\d{2}$/.test(String(payload.chegadaEm))) throw new Error('Horário de chegada inválido.');
-}
-
-function validateAgendaUpsert(payload) {
-  requireMutationId(payload);
-  const appointment = payload?.appointment;
-  if (!appointment || typeof appointment !== 'object') throw new Error('Agendamento inválido.');
-  requirePositiveId(appointment.paciente_id, 'paciente_id');
-  requirePositiveId(appointment.profissional_id, 'profissional_id');
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(String(appointment.data || ''))) throw new Error('Data de agenda inválida.');
-  if (!/^\d{2}:\d{2}$/.test(String(appointment.hora || ''))) throw new Error('Hora de agenda inválida.');
-  if (!ALLOWED_APPOINTMENT_STATUSES.has(String(appointment.status || 'agendado'))) throw new Error('Status de agenda inválido.');
-}
-
-function validatePatientUpsertBasic(payload) {
-  requireMutationId(payload);
-  const patient = payload?.patient;
-  if (!patient || typeof patient !== 'object') throw new Error('Paciente inválido.');
-  if (patient.id != null) requirePositiveId(patient.id, 'patient.id');
-  const nome = String(patient.nome || '').trim();
-  if (nome.length < 2 || nome.length > 180) throw new Error('Nome de paciente inválido.');
-  if (patient.telefone != null && String(patient.telefone).length > 32) throw new Error('Telefone inválido.');
+  if (!ALLOWED_APPOINTMENT_STATUSES.has(String(payload?.status || ''))) throw new Error('Status de agenda não permitido para profissional remoto.');
+  if (payload.chegadaEm != null) throw new Error('Registro de chegada é operação da recepção.');
 }
 
 const PROFESSIONAL_COMMANDS = Object.freeze({
-  'agenda.updateStatus': validateAgendaUpdateStatus,
-  'agenda.upsert': validateAgendaUpsert,
-  'patient.upsertBasic': validatePatientUpsertBasic
+  'agenda.updateStatus': validateAgendaUpdateStatus
 });
 
 function validateCommand(role, action, payload = {}) {
