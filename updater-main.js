@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createUpdaterService } = require('./js/core/updater-service');
 const { installDesktopDataHardening } = require('./js/core/desktop-data-hardening');
@@ -8,7 +8,7 @@ const { installClinicHub } = require('./js/core/clinic-network-main');
 
 // Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
-const isolationService = installLocalDataIsolation({ app, ipcMain, safeStorage });
+const isolationService = installLocalDataIsolation({ app, ipcMain, safeStorage, dialog, shell });
 installClinicHub({ app, ipcMain, safeStorage, isolationService, BrowserWindow, logger: console });
 installDesktopDataHardening();
 installRestoreRollback();
