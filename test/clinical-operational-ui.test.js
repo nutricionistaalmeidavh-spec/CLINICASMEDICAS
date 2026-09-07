@@ -6,18 +6,22 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const shell = read('js/core/shell.js');
+const formUx = read('js/core/form-ux.js');
+const app = read('js/app.js');
 const agenda = read('js/domains/agenda.js');
 const workspace = read('js/domains/patient-workspace.js');
 const pep = read('js/domains/pep.js');
 const platform = read('css/platform.css');
 const html = read('index.html');
 const operationalCssPath = path.join(root, 'css', 'clinical-operational.css');
+const formUxCssPath = path.join(root, 'css', 'form-ux.css');
 
 test('clinical operational refinement preserves the active Sage palette', () => {
   for (const value of ['#35483C', '#526A5A', '#8FA88F', '#F6F4EE']) {
     assert.match(platform, new RegExp(value, 'i'));
   }
   assert.doesNotMatch(shell, /#245B65/i);
+  assert.doesNotMatch(formUx, /#245B65/i);
 });
 
 test('shell loads the compact clinical operational override layer', () => {
@@ -78,11 +82,15 @@ test('workspace preserves unsaved field values while alternating among the eight
 });
 
 test('shared form refinement marks required controls and exposes inline validation messages', () => {
-  for (const marker of ['markRequiredControls', 'bindInlineValidation', 'aria-required', 'aria-invalid', 'form-validation-message']) {
-    assert.match(shell, new RegExp(marker));
+  assert.ok(fs.existsSync(formUxCssPath), 'form-ux.css must exist');
+  for (const marker of ['markRequiredControls', 'bindInlineValidation', 'aria-required', 'aria-invalid', 'form-validation-message', 'ACTION_REQUIRED_CONTROLS']) {
+    assert.match(formUx, new RegExp(marker));
   }
-  if (!fs.existsSync(operationalCssPath)) return;
-  const css = read('css/clinical-operational.css');
+  assert.match(formUx, /css\/form-ux\.css/);
+  assert.match(app, /js\/core\/form-ux\.js/);
+  assert.match(app, /PlennusFormUX/);
+  if (!fs.existsSync(formUxCssPath)) return;
+  const css = read('css/form-ux.css');
   assert.match(css, /\.form-validation-message/);
   assert.match(css, /:has\([^)]*\[required\]/);
 });
