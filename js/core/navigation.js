@@ -1,7 +1,7 @@
 (function (root) {
   const CORE_SCRIPTS = [
     'js/core/data-isolation.js',
-    'js/core/database-isolation-router.js',
+    'js/core/database-isolation-router-safe.js',
     'js/core/clinical-model.js',
     'js/core/operations-model.js',
     'js/core/workflow-guards.js',
