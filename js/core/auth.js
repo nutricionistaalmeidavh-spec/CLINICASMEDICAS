@@ -99,6 +99,7 @@
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
     root.PlennusClinicNetworkStatus?.refresh?.();
+    root.PlennusClinicNetworkWorkflow?.applyRemoteUiGuards?.();
     navegar(root.PlennusAccessControl.getLandingPage(nivel));
   }
 
@@ -132,6 +133,7 @@
       document.getElementById('app-screen').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
       root.PlennusClinicNetworkStatus?.refresh?.();
+      root.PlennusClinicNetworkWorkflow?.applyRemoteUiGuards?.();
     }
   }
 
