@@ -24,6 +24,7 @@ test('preload exposes only session-bound professional database and clinical-file
     'data-isolation:open-clinical-file',
     'data-isolation:adopt-legacy-clinical-file',
     'data-isolation:remove-clinical-file',
+    'data-isolation:read-clinical-image',
     'data-isolation:end-session'
   ]) {
     assert.match(source, new RegExp(channel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -31,6 +32,14 @@ test('preload exposes only session-bound professional database and clinical-file
   assert.doesNotMatch(source, /professionalId\).*data-isolation:load-professional/);
   assert.match(source, /selectClinicalFile: \(sessionToken\)/);
   assert.match(source, /openClinicalFile: \(sessionToken, filePath\)/);
+  assert.match(source, /readClinicalImage: \(sessionToken, filePath\)/);
+});
+
+test('clinical image document rendering passes the authenticated professional session', () => {
+  const source = read('js/domains/platform-documents.js');
+  assert.match(source, /DB\?\.session\?\.\(\)\?\.token/);
+  assert.match(source, /readClinicalImage\(token, row\.caminho_arquivo\)/);
+  assert.doesNotMatch(source, /lerImagemClinicaParaDocumento\(row\.caminho_arquivo\)/);
 });
 
 test('renderer installs backup-safe database routing before migrations and domain modules', () => {
