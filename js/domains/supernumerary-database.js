@@ -86,7 +86,7 @@
       DB.run("UPDATE odontograma_elementos SET status=?,atualizado_em=datetime('now','localtime') WHERE id=?", [next, element.id]);
       DB.run(`INSERT INTO odontograma_elemento_eventos
         (elemento_id,tipo,status_anterior,status_novo,detalhes,registrado_por)
-        VALUES (?,'status',?,?,?,?,?)`, [element.id, element.status, next, element.label, userId(explicitUserId)]);
+        VALUES (?,'status',?,?,?,?)`, [element.id, element.status, next, element.label, userId(explicitUserId)]);
       return get(element.id);
     }
 
