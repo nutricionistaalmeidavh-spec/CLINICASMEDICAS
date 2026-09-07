@@ -1,11 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  CAPABILITIES,
   parseAllowedRoles,
   canViewMenuItem,
   canNavigateToPage,
   getLandingPage,
   getRoleMeta,
+  hasCapability,
+  canAccessPatientClinicalWorkspace,
   canManageClinicSettings,
   canManageUsers,
   canManageBackups,
@@ -35,9 +38,12 @@ test('keeps role labels and badge classes used by the current UI', () => {
   assert.deepEqual(getRoleMeta('medico'), { label: 'Médico / Profissional', className: 'badge-medico' });
 });
 
-test('page permission matrix blocks direct navigation to privileged modules', () => {
+test('page permission matrix blocks direct navigation to clinical modules outside professional sessions', () => {
   assert.equal(canNavigateToPage('medico', 'prontuario'), true);
   assert.equal(canNavigateToPage('recepcao', 'prontuario'), false);
+  assert.equal(canNavigateToPage('admin', 'prontuario'), false);
+  assert.equal(canNavigateToPage('admin', 'documentos'), false);
+  assert.equal(canNavigateToPage('admin', 'odontologia'), false);
   assert.equal(canNavigateToPage('recepcao', 'financeiro'), true);
   assert.equal(canNavigateToPage('medico', 'financeiro'), false);
   assert.equal(canNavigateToPage('recepcao', 'repasses'), false);
@@ -47,13 +53,28 @@ test('page permission matrix blocks direct navigation to privileged modules', ()
   assert.equal(canNavigateToPage('admin', 'pagina-inexistente'), false);
 });
 
-test('administrative capabilities remain admin-only while clinical edits stay with professionals', () => {
+test('administrative capabilities stay admin-only and clinical capabilities stay professional-only', () => {
   for (const capability of [canManageClinicSettings, canManageUsers, canManageBackups, canManagePayouts]) {
     assert.equal(capability('admin'), true);
     assert.equal(capability('medico'), false);
     assert.equal(capability('recepcao'), false);
   }
-  assert.equal(canEditClinicalData('admin'), true);
+
+  assert.equal(canAccessPatientClinicalWorkspace('admin'), false);
+  assert.equal(canAccessPatientClinicalWorkspace('medico'), true);
+  assert.equal(canAccessPatientClinicalWorkspace('recepcao'), false);
+  assert.equal(canEditClinicalData('admin'), false);
   assert.equal(canEditClinicalData('medico'), true);
   assert.equal(canEditClinicalData('recepcao'), false);
+});
+
+test('capability matrix separates clinical and billing responsibilities', () => {
+  assert.equal(hasCapability('medico', CAPABILITIES.CLINICAL_READ), true);
+  assert.equal(hasCapability('medico', CAPABILITIES.CLINICAL_WRITE), true);
+  assert.equal(hasCapability('recepcao', CAPABILITIES.CLINICAL_READ), false);
+  assert.equal(hasCapability('admin', CAPABILITIES.CLINICAL_READ), false);
+
+  assert.equal(hasCapability('recepcao', CAPABILITIES.BILLING_WRITE), true);
+  assert.equal(hasCapability('admin', CAPABILITIES.BILLING_WRITE), true);
+  assert.equal(hasCapability('medico', CAPABILITIES.BILLING_WRITE), false);
 });
