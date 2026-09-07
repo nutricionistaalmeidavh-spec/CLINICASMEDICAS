@@ -106,6 +106,14 @@
     isolation.SHARED_MIRROR_TABLES.forEach(copySharedTableToProfessional);
   }
 
+  async function migrateProfessionalDatabase() {
+    if (!professionalDb) return { applied: [], skipped: true };
+    if (!root.PlennusMigrations?.runMigrations) throw new Error('Migrations clínicas indisponíveis para o banco profissional.');
+    const result = await root.PlennusMigrations.runMigrations({ database: professionalDb });
+    await queueProfessionalSave();
+    return result;
+  }
+
   function buildFilteredProfessionalDatabase(professionalId) {
     if (!sqlModule) throw new Error('sql.js ainda não foi carregado para a sessão profissional.');
     const candidate = new sqlModule.Database(new Uint8Array(clinicStore.export()));
@@ -265,6 +273,7 @@
     accessSession = { ...session, professionalId: Number(session.professionalId) };
     if (Array.isArray(loaded?.data) && loaded.data.length) {
       professionalDb = new sqlModule.Database(new Uint8Array(loaded.data));
+      await migrateProfessionalDatabase();
       refreshSharedMirrors();
       await queueProfessionalSave();
       return { ok: true, role: session.role, professionalDatabase: true, created: false };
