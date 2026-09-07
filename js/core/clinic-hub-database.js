@@ -12,10 +12,8 @@ function query(database, sql, params = []) {
   const stmt = database.prepare(sql);
   stmt.bind(params);
   const rows = [];
-  try {
-    while (stmt.step()) rows.push(stmt.getAsObject());
-    return rows;
-  } finally { stmt.free(); }
+  try { while (stmt.step()) rows.push(stmt.getAsObject()); return rows; }
+  finally { stmt.free(); }
 }
 
 function tableExists(database, table) {
@@ -38,22 +36,32 @@ function professionalPatientIds(database, professionalId) {
 function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
   if (typeof getBytes !== 'function' || typeof setBytes !== 'function') throw new Error('Clinic Hub database adapters are required.');
   let sqlPromise = null;
+  let writeQueue = Promise.resolve();
   const SQL = () => sqlPromise || (sqlPromise = initSqlJs());
 
-  async function withDatabase(callback, { write = false } = {}) {
-    const module = await SQL();
-    const bytes = getBytes();
-    if (!Array.isArray(bytes) || !bytes.length) throw new Error('Banco da clínica indisponível.');
-    const database = new module.Database(new Uint8Array(bytes));
-    try {
-      const result = await callback(database);
-      if (write) setBytes(Array.from(database.export()));
-      return result;
-    } finally { database.close(); }
+  async function operate(callback, { write = false } = {}) {
+    const run = async () => {
+      const module = await SQL();
+      const bytes = getBytes();
+      if (!Array.isArray(bytes) || !bytes.length) throw new Error('Banco da clínica indisponível.');
+      const database = new module.Database(new Uint8Array(bytes));
+      try {
+        const result = await callback(database);
+        if (write) setBytes(Array.from(database.export()));
+        return result;
+      } finally { database.close(); }
+    };
+    if (write) {
+      const next = writeQueue.catch(() => {}).then(run);
+      writeQueue = next.then(() => undefined, () => undefined);
+      return next;
+    }
+    await writeQueue.catch(() => {});
+    return run();
   }
 
   async function authenticate(username, password) {
-    return withDatabase(database => {
+    return operate(database => {
       const rows = query(database, `SELECT u.id,u.nome,u.usuario,u.senha,u.nivel,u.ativo,u.profissional_id,p.uid AS professional_uid
         FROM usuarios u LEFT JOIN profissionais p ON p.id=u.profissional_id
         WHERE u.usuario=? AND u.ativo=1 LIMIT 1`, [String(username || '').trim()]);
@@ -74,7 +82,7 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
 
   async function snapshot(role, professionalId) {
     if (role !== 'medico' || !Number(professionalId)) throw new Error('Snapshot remoto permitido somente para profissional.');
-    return withDatabase(database => {
+    return operate(database => {
       const result = {};
       const patientIds = professionalPatientIds(database, Number(professionalId));
       for (const table of policy.allowedSnapshotTables(role)) {
@@ -101,7 +109,7 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
     policy.validateCommand(role, action, payload);
     const professional = Number(professionalId);
     if (!Number.isInteger(professional) || professional <= 0) throw new Error('Profissional inválido.');
-    return withDatabase(database => {
+    return operate(database => {
       database.run(`CREATE TABLE IF NOT EXISTS network_mutations (
         mutation_id TEXT PRIMARY KEY, professional_id INTEGER NOT NULL, action TEXT NOT NULL,
         result_json TEXT, applied_at TEXT DEFAULT (datetime('now','localtime'))
@@ -113,9 +121,18 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
       try {
         let result;
         if (action === 'agenda.updateStatus') {
-          database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [payload.status, payload.appointmentId, professional]);
+          if (payload.chegadaEm != null && tableExists(database, 'agenda')) {
+            const columns = query(database, 'PRAGMA table_info(agenda)').map(row => row.name);
+            if (columns.includes('chegada_em')) {
+              database.run('UPDATE agenda SET status=?,chegada_em=? WHERE id=? AND profissional_id=?', [payload.status, payload.chegadaEm, payload.appointmentId, professional]);
+            } else {
+              database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [payload.status, payload.appointmentId, professional]);
+            }
+          } else {
+            database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [payload.status, payload.appointmentId, professional]);
+          }
           if (database.getRowsModified() !== 1) throw new Error('Agendamento não encontrado para este profissional.');
-          result = { appointmentId: Number(payload.appointmentId), status: payload.status };
+          result = { appointmentId: Number(payload.appointmentId), status: payload.status, chegadaEm: payload.chegadaEm || null };
         } else if (action === 'agenda.upsert') {
           const appointment = payload.appointment || {};
           if (Number(appointment.profissional_id) !== professional) throw new Error('Agendamento pertence a outro profissional.');
@@ -158,7 +175,7 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
   return { authenticate, snapshot, mutate };
 }
 
-function createClinicHubRpcController({ databaseService, now = Date.now, sessionTtlMs = REMOTE_SESSION_TTL_MS } = {}) {
+function createClinicHubRpcController({ databaseService, now = Date.now, sessionTtlMs = REMOTE_SESSION_TTL_MS, onMutationApplied = () => {} } = {}) {
   if (!databaseService) throw new Error('Database service is required.');
   const sessions = new Map();
 
@@ -191,7 +208,11 @@ function createClinicHubRpcController({ databaseService, now = Date.now, session
     }
     const session = requireSession(deviceId, payload.sessionToken);
     if (action === 'shared.snapshot') return databaseService.snapshot(session.role, session.professionalId);
-    if (action === 'shared.mutate') return databaseService.mutate(session.role, session.professionalId, payload.command, payload.data || {});
+    if (action === 'shared.mutate') {
+      const result = await databaseService.mutate(session.role, session.professionalId, payload.command, payload.data || {});
+      if (!result.duplicate) await onMutationApplied({ professionalId: session.professionalId, command: payload.command, data: payload.data || {}, result: result.result });
+      return result;
+    }
     throw new Error('Ação RPC não permitida.');
   }
 
