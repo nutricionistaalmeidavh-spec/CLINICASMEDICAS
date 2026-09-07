@@ -40,7 +40,9 @@ function createEncryptedJsonStore({ filePath, safeStorage } = {}) {
     read(fallback = null) {
       if (!fs.existsSync(filePath)) return fallback;
       ensureEncryption();
-      const encrypted = fs.readFileSync(filePath);
+      const encoded = fs.readFileSync(filePath, 'utf8').trim();
+      if (!encoded) return fallback;
+      const encrypted = Buffer.from(encoded, 'base64');
       const plaintext = safeStorage.decryptString(encrypted);
       return JSON.parse(plaintext);
     },
@@ -48,8 +50,9 @@ function createEncryptedJsonStore({ filePath, safeStorage } = {}) {
       ensureEncryption();
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       const encrypted = safeStorage.encryptString(JSON.stringify(value));
+      const encoded = Buffer.from(encrypted).toString('base64');
       const temp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-      fs.writeFileSync(temp, encrypted, { mode: 0o600 });
+      fs.writeFileSync(temp, encoded, { encoding: 'utf8', mode: 0o600 });
       fs.renameSync(temp, filePath);
       try { fs.chmodSync(filePath, 0o600); } catch (_) { /* Windows pode ignorar chmod */ }
       return { ok: true };
