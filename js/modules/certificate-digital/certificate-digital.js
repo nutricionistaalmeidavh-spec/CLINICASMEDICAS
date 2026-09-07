@@ -26,11 +26,12 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function mount({ container, provider = getDefaultProvider(), openExternal } = {}) {
+  function mount({ container, provider = getDefaultProvider(), openExternal, hostName = 'o sistema' } = {}) {
     if (!container || typeof container.appendChild !== 'function') throw new Error('Container do certificado digital inválido.');
     if (typeof openExternal !== 'function') throw new Error('Abertura externa indisponível.');
     if (!/^https:\/\//i.test(String(provider.storeUrl || ''))) throw new Error('Endereço da loja de certificados inválido.');
 
+    const safeHostName = String(hostName || 'o sistema').trim().slice(0, 80) || 'o sistema';
     container.innerHTML = '';
     const card = document.createElement('div');
     card.className = 'card commercial-service-card certificate-service-card';
@@ -42,7 +43,7 @@
 
     const description = document.createElement('p');
     description.className = 'text-muted';
-    description.textContent = 'Emita ou renove seu certificado A1 por meio do parceiro de certificação. O Plennus não recebe os dados da emissão.';
+    description.textContent = `Emita ou renove seu certificado A1 por meio do parceiro de certificação. ${safeHostName} não recebe os dados da emissão.`;
     card.appendChild(description);
 
     const list = document.createElement('div');
@@ -62,7 +63,7 @@
     const note = document.createElement('p');
     note.className = 'text-muted';
     note.style.marginTop = '10px';
-    note.textContent = `Operado por ${provider.name}. A compra é concluída fora do Plennus.`;
+    note.textContent = `Operado por ${provider.name}. A compra é concluída fora de ${safeHostName}.`;
     card.appendChild(note);
 
     const button = document.createElement('button');
