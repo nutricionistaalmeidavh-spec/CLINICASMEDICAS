@@ -98,6 +98,68 @@ function createPairingManager({ now = Date.now, ttlMs = PAIRING_TTL_MS } = {}) {
   };
 }
 
+function createHubRuntime({ now = Date.now, state = { devices: {} }, persist = () => {}, rpcHandler = async () => ({ ok: true }) } = {}) {
+  if (!state.devices || typeof state.devices !== 'object') state.devices = {};
+  const pairing = createPairingManager({ now });
+  const seenRequests = new Map();
+
+  function cleanupSeen() {
+    const cutoff = Number(now()) - protocol.MAX_CLOCK_SKEW_MS;
+    for (const [requestId, timestamp] of seenRequests) {
+      if (timestamp < cutoff) seenRequests.delete(requestId);
+    }
+  }
+
+  return {
+    createPairing() {
+      return pairing.create();
+    },
+    pairDevice({ deviceId, nonce, proof, deviceName = '' } = {}) {
+      const id = String(deviceId || '').trim();
+      if (!id || id.length > 128) throw new Error('Dispositivo inválido.');
+      if (!pairing.verify(id, nonce, proof)) throw new Error('Pareamento inválido ou expirado.');
+      const keyHex = crypto.randomBytes(32).toString('hex');
+      state.devices[id] = {
+        keyHex,
+        deviceName: String(deviceName || '').slice(0, 120),
+        pairedAt: Number(now())
+      };
+      persist(state);
+      return { ok: true, keyHex };
+    },
+    async handleEncryptedRpc(deviceId, envelope) {
+      const id = String(deviceId || '').trim();
+      const device = state.devices[id];
+      if (!device?.keyHex) throw new Error('Dispositivo não pareado.');
+      const key = Buffer.from(device.keyHex, 'hex');
+      const request = protocol.open(key, id, envelope);
+      if (!protocol.isFreshTimestamp(request?.timestamp, Number(now()))) throw new Error('Solicitação expirada.');
+      const requestId = String(request?.requestId || '').trim();
+      if (!requestId || requestId.length > 128) throw new Error('requestId inválido.');
+      cleanupSeen();
+      if (seenRequests.has(requestId)) throw new Error('Replay de solicitação detectado.');
+      seenRequests.set(requestId, Number(request.timestamp));
+      const result = await rpcHandler({
+        deviceId: id,
+        action: String(request.action || ''),
+        payload: request.payload ?? {},
+        requestId,
+        timestamp: Number(request.timestamp)
+      });
+      return protocol.seal(key, id, {
+        ok: true,
+        requestId,
+        timestamp: Number(now()),
+        result
+      });
+    },
+    device(deviceId) {
+      const item = state.devices[String(deviceId || '')];
+      return item ? { deviceName: item.deviceName || '', pairedAt: item.pairedAt || 0 } : null;
+    }
+  };
+}
+
 module.exports = {
   SERVICE_NAME,
   DISCOVERY_PORT,
@@ -106,5 +168,6 @@ module.exports = {
   buildBeacon,
   isValidDiscoveredHub,
   createEncryptedJsonStore,
-  createPairingManager
+  createPairingManager,
+  createHubRuntime
 };
