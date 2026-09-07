@@ -10,13 +10,38 @@
     document.querySelectorAll(selector).forEach(element => { element.hidden = hidden; });
   }
 
+  function ensureReturnsPriority(role) {
+    const stack = document.querySelector('.dashboard-attention-stack');
+    if (!stack) return;
+    const canSeeReturns = root.PlennusAccessControl?.canNavigateToPage?.(role, 'crm') === true;
+    let item = document.getElementById('dashboard-retornos-prioridade');
+    if (!item) {
+      item = document.createElement('button');
+      item.id = 'dashboard-retornos-prioridade';
+      item.className = 'dashboard-attention-item';
+      item.type = 'button';
+      item.setAttribute('onclick', "navegar('crm')");
+      item.innerHTML = `
+        <span class="dashboard-attention-icon" aria-hidden="true">↻</span>
+        <span class="dashboard-attention-copy"><strong>Retornos pendentes</strong><small>Pacientes que precisam de acompanhamento</small></span>
+        <span class="dashboard-attention-value" id="stat-retornos-prioridade">0</span>`;
+      const pendingItem = document.getElementById('stat-pendencias')?.closest('.dashboard-attention-item');
+      if (pendingItem) pendingItem.insertAdjacentElement('afterend', item);
+      else stack.appendChild(item);
+    }
+    item.hidden = !canSeeReturns;
+    const source = document.getElementById('stat-retornos');
+    const target = document.getElementById('stat-retornos-prioridade');
+    if (target) target.textContent = source?.textContent || '0';
+  }
+
   function applyClinicalDashboardBoundary() {
     if (typeof document === 'undefined') return;
     const role = currentRole();
     const canSeeClinical = root.PlennusAccessControl?.canAccessPatientClinicalWorkspace?.(role) === true;
 
     ['stat-pendencias', 'stat-exames-pendentes'].forEach(id => {
-      const card = document.getElementById(id)?.closest('.dashboard-kpi');
+      const card = document.getElementById(id)?.closest('.dashboard-kpi, .dashboard-attention-item');
       if (card) card.hidden = !canSeeClinical;
     });
 
@@ -26,6 +51,7 @@
     if (budgetPanel) budgetPanel.hidden = !canSeeClinical;
 
     setHiddenBySelector('.dashboard-kpi-action[onclick*="odontologia"]', !canSeeClinical);
+    ensureReturnsPriority(role);
   }
 
   function carregarDashboardIsolado(...args) {
@@ -36,5 +62,5 @@
 
   root.carregarDashboard = carregarDashboardIsolado;
   if (root.PlennusDashboard) root.PlennusDashboard.carregarDashboard = carregarDashboardIsolado;
-  root.PlennusDashboardRoleIsolation = { applyClinicalDashboardBoundary };
+  root.PlennusDashboardRoleIsolation = { applyClinicalDashboardBoundary, ensureReturnsPriority };
 })(typeof window !== 'undefined' ? window : globalThis);
