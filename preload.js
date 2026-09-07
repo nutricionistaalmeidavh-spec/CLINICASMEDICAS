@@ -25,6 +25,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveProfessional: (sessionToken, data) => ipcRenderer.invoke('data-isolation:save-professional', sessionToken, data),
     endSession: (sessionToken) => ipcRenderer.invoke('data-isolation:end-session', sessionToken)
   },
+  clinicNetwork: {
+    status: () => ipcRenderer.invoke('clinic-network:status'),
+    startHub: () => ipcRenderer.invoke('clinic-network:start-hub'),
+    stopHub: () => ipcRenderer.invoke('clinic-network:stop-hub'),
+    createPairing: () => ipcRenderer.invoke('clinic-network:create-pairing'),
+    discover: () => ipcRenderer.invoke('clinic-network:discover'),
+    pair: (input) => ipcRenderer.invoke('clinic-network:pair', input),
+    login: (credentials) => ipcRenderer.invoke('clinic-network:login', credentials),
+    sync: () => ipcRenderer.invoke('clinic-network:sync'),
+    mutate: (input) => ipcRenderer.invoke('clinic-network:mutate', input),
+    disconnect: () => ipcRenderer.invoke('clinic-network:disconnect')
+  },
   updater: {
     state: () => ipcRenderer.invoke('updater:state'),
     check: () => ipcRenderer.invoke('updater:check'),
