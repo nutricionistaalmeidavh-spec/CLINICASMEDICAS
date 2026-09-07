@@ -9,10 +9,10 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 test('desktop entry installs isolation before the application becomes usable', () => {
   const source = read('updater-main.js');
   assert.match(source, /installLocalDataIsolation/);
-  assert.match(source, /installLocalDataIsolation\(\{ app, ipcMain, safeStorage \}\)/);
+  assert.match(source, /installLocalDataIsolation\(\{ app, ipcMain, safeStorage, dialog, shell \}\)/);
 });
 
-test('preload exposes only session-bound professional database operations', () => {
+test('preload exposes only session-bound professional database and clinical-file operations', () => {
   const source = read('preload.js');
   for (const channel of [
     'data-isolation:load-clinic',
@@ -20,11 +20,17 @@ test('preload exposes only session-bound professional database operations', () =
     'data-isolation:authenticate',
     'data-isolation:load-professional',
     'data-isolation:save-professional',
+    'data-isolation:select-clinical-file',
+    'data-isolation:open-clinical-file',
+    'data-isolation:adopt-legacy-clinical-file',
+    'data-isolation:remove-clinical-file',
     'data-isolation:end-session'
   ]) {
     assert.match(source, new RegExp(channel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.doesNotMatch(source, /professionalId\).*data-isolation:load-professional/);
+  assert.match(source, /selectClinicalFile: \(sessionToken\)/);
+  assert.match(source, /openClinicalFile: \(sessionToken, filePath\)/);
 });
 
 test('renderer installs backup-safe database routing before migrations and domain modules', () => {
