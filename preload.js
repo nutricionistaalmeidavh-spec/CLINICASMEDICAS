@@ -12,8 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gerarPdf: (html, nome) => ipcRenderer.invoke('gerar-pdf', html, nome),
   imprimirDocumento: (html) => ipcRenderer.invoke('imprimir-documento', html),
   abrirUrlExterna: (url) => ipcRenderer.invoke('abrir-url-externa', url),
-  selecionarArquivoClinico: () => ipcRenderer.invoke('selecionar-arquivo-clinico'),
-  abrirArquivoClinico: (filePath) => ipcRenderer.invoke('abrir-arquivo-clinico', filePath),
+  selecionarArquivoClinico: (sessionToken) => ipcRenderer.invoke('data-isolation:select-clinical-file', sessionToken),
+  abrirArquivoClinico: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:open-clinical-file', sessionToken, filePath),
+  adotarArquivoClinicoLegado: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:adopt-legacy-clinical-file', sessionToken, filePath),
+  removerArquivoClinico: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:remove-clinical-file', sessionToken, filePath),
   lerImagemClinicaParaDocumento: (filePath) => ipcRenderer.invoke('ler-imagem-clinica-para-documento', filePath),
   carregarBanco: () => ipcRenderer.invoke('carregar-banco'),
   salvarBanco: (data) => ipcRenderer.invoke('salvar-banco', data),
@@ -23,6 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     authenticate: (credentials) => ipcRenderer.invoke('data-isolation:authenticate', credentials),
     loadProfessional: (sessionToken) => ipcRenderer.invoke('data-isolation:load-professional', sessionToken),
     saveProfessional: (sessionToken, data) => ipcRenderer.invoke('data-isolation:save-professional', sessionToken, data),
+    selectClinicalFile: (sessionToken) => ipcRenderer.invoke('data-isolation:select-clinical-file', sessionToken),
+    openClinicalFile: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:open-clinical-file', sessionToken, filePath),
+    adoptLegacyClinicalFile: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:adopt-legacy-clinical-file', sessionToken, filePath),
+    removeClinicalFile: (sessionToken, filePath) => ipcRenderer.invoke('data-isolation:remove-clinical-file', sessionToken, filePath),
     endSession: (sessionToken) => ipcRenderer.invoke('data-isolation:end-session', sessionToken)
   },
   clinicNetwork: {
