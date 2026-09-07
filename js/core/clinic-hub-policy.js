@@ -10,7 +10,7 @@ const PROFESSIONAL_SNAPSHOT_TABLES = Object.freeze([
 ]);
 
 const ALLOWED_APPOINTMENT_STATUSES = new Set([
-  'agendado', 'confirmado', 'espera', 'em_atendimento', 'realizado', 'finalizado', 'cancelado', 'faltou'
+  'agendado', 'confirmado', 'espera', 'atendimento', 'em_atendimento', 'realizado', 'finalizado', 'cancelado', 'faltou'
 ]);
 
 const SENSITIVE_CONFIG_PATTERN = /(api[_-]?key|token|secret|senha|password|credential|oauth|client[_-]?secret)/i;
@@ -42,6 +42,7 @@ function validateAgendaUpdateStatus(payload) {
   requireMutationId(payload);
   requirePositiveId(payload?.appointmentId, 'appointmentId');
   if (!ALLOWED_APPOINTMENT_STATUSES.has(String(payload?.status || ''))) throw new Error('Status de agenda inválido.');
+  if (payload.chegadaEm != null && !/^\d{2}:\d{2}$/.test(String(payload.chegadaEm))) throw new Error('Horário de chegada inválido.');
 }
 
 function validateAgendaUpsert(payload) {
