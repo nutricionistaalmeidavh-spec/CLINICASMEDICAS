@@ -7,6 +7,7 @@ const { installLocalDataIsolation, SESSION_TTL_MS } = require('./js/core/local-d
 const { installProfessionalClinicalImageReader } = require('./js/core/professional-clinical-image-main');
 const { installCompositeBackupService } = require('./js/core/composite-backup-service');
 const { installClinicHub } = require('./js/core/clinic-network-main');
+const { registerFiscalIpc } = require('./js/modules/fiscal/fiscal-main');
 
 // Mantém o bootstrap clínico existente e aplica os serviços desktop antes da janela iniciar o renderer.
 require('./main.js');
@@ -31,9 +32,15 @@ const administrativeIsolationService = {
   invalidateAllSessions: () => isolationService.sessions.clear()
 };
 
+function isTrustedDesktopSender(event) {
+  const senderId = event?.sender?.id;
+  return Number.isInteger(senderId) && BrowserWindow.getAllWindows().some(window => !window.isDestroyed() && window.webContents.id === senderId);
+}
+
 installProfessionalClinicalImageReader({ ipcMain, isolationService, logger: console });
 installCompositeBackupService({ app, ipcMain, safeStorage, isolationService: administrativeIsolationService, dialog, logger: console });
 installClinicHub({ app, ipcMain, safeStorage, isolationService, BrowserWindow, logger: console });
+registerFiscalIpc({ ipcMain, app, safeStorage, isTrustedSender: isTrustedDesktopSender });
 installDesktopDataHardening();
 installRestoreRollback();
 
