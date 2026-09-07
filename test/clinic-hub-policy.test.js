@@ -27,11 +27,17 @@ test('configuration snapshot removes secret-like keys', () => {
   ]);
 });
 
-test('professional RPC allows only narrow shared mutations', () => {
-  assert.doesNotThrow(() => policy.validateCommand('medico', 'agenda.updateStatus', { appointmentId: 2, status: 'finalizado', mutationId: 'm-1' }));
-  assert.doesNotThrow(() => policy.validateCommand('medico', 'agenda.upsert', { mutationId: 'm-2', appointment: { id: 2, paciente_id: 1, profissional_id: 4, data: '07/09/2026', hora: '09:00', status: 'agendado' } }));
-  assert.doesNotThrow(() => policy.validateCommand('medico', 'patient.upsertBasic', { mutationId: 'm-3', patient: { id: 1, nome: 'Maria', telefone: '16999999999' } }));
+test('professional RPC only allows clinical appointment-state transitions on shared data', () => {
+  for (const status of ['atendimento', 'em_atendimento', 'realizado', 'finalizado']) {
+    assert.doesNotThrow(() => policy.validateCommand('medico', 'agenda.updateStatus', { appointmentId: 2, status, mutationId: `m-${status}` }));
+  }
 
+  for (const status of ['agendado', 'confirmado', 'espera', 'cancelado', 'faltou']) {
+    assert.throws(() => policy.validateCommand('medico', 'agenda.updateStatus', { appointmentId: 2, status, mutationId: `m-${status}` }), /status/i);
+  }
+
+  assert.throws(() => policy.validateCommand('medico', 'agenda.upsert', { mutationId: 'm-2', appointment: { id: 2, paciente_id: 1, profissional_id: 4, data: '07/09/2026', hora: '09:00', status: 'agendado' } }));
+  assert.throws(() => policy.validateCommand('medico', 'patient.upsertBasic', { mutationId: 'm-3', patient: { id: 1, nome: 'Maria', telefone: '16999999999' } }));
   assert.throws(() => policy.validateCommand('medico', 'sql.execute', { sql: 'SELECT * FROM usuarios' }));
   assert.throws(() => policy.validateCommand('medico', 'clinical.write', { table: 'prontuario_atendimentos' }));
   assert.throws(() => policy.validateCommand('medico', 'finance.delete', { id: 1 }));
