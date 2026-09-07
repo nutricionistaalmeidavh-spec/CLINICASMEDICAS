@@ -35,7 +35,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     login: (credentials) => ipcRenderer.invoke('clinic-network:login', credentials),
     sync: () => ipcRenderer.invoke('clinic-network:sync'),
     mutate: (input) => ipcRenderer.invoke('clinic-network:mutate', input),
-    disconnect: () => ipcRenderer.invoke('clinic-network:disconnect')
+    disconnect: () => ipcRenderer.invoke('clinic-network:disconnect'),
+    onHubMutationApplied: (listener) => {
+      if (typeof listener !== 'function') return () => {};
+      const handler = (_event, change) => listener(change);
+      ipcRenderer.on('clinic-network:hub-mutation-applied', handler);
+      return () => ipcRenderer.removeListener('clinic-network:hub-mutation-applied', handler);
+    }
   },
   updater: {
     state: () => ipcRenderer.invoke('updater:state'),
