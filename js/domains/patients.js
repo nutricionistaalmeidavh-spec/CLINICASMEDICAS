@@ -1,27 +1,118 @@
+function patientInitials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'PA';
+  return `${parts[0][0] || ''}${parts.length > 1 ? parts[parts.length - 1][0] : ''}`.toUpperCase();
+}
+
+function normalizePatientSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function updatePatientFilterCount() {
+  const tbody = document.getElementById('tabela-pacientes');
+  const count = document.getElementById('patient-count');
+  if (!tbody || !count) return;
+  const visible = [...tbody.querySelectorAll('tr')].filter(row => row.hidden !== true).length;
+  const total = tbody.querySelectorAll('tr').length;
+  count.textContent = visible === total ? String(total) : `${visible} de ${total}`;
+}
+
+function filterPatientsTable(query) {
+  const tbody = document.getElementById('tabela-pacientes');
+  if (!tbody) return;
+  const needle = normalizePatientSearch(query);
+  [...tbody.querySelectorAll('tr')].forEach(row => {
+    const haystack = normalizePatientSearch(row.dataset.patientSearch || row.textContent || '');
+    row.hidden = Boolean(needle) && !haystack.includes(needle);
+  });
+  updatePatientFilterCount();
+}
+
+function ensurePatientsUi() {
+  const page = document.getElementById('page-pacientes');
+  if (!page || page.dataset.premiumPatients === '1') return;
+  page.dataset.premiumPatients = '1';
+  page.classList.add('patients-page');
+
+  const legacyTitle = [...page.children].find(el => el.classList?.contains('page-title'));
+  const cards = [...page.children].filter(el => el.classList?.contains('card'));
+  const editorCard = cards[0];
+  const listCard = cards[1];
+  if (!editorCard || !listCard) return;
+
+  editorCard.classList.add('patients-editor-card');
+  listCard.classList.add('patients-list-card');
+
+  const header = document.createElement('div');
+  header.className = 'patients-page-header';
+  header.innerHTML = `
+    <div>
+      <h1 class="page-title">Pacientes</h1>
+      <p class="text-muted">Cadastro, dados clínicos essenciais e acesso rápido ao prontuário.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" onclick="limparPaciente();document.getElementById('pac-nome')?.focus()">+ Novo paciente</button>`;
+  page.insertBefore(header, legacyTitle || editorCard);
+
+  const wrapper = listCard.querySelector('.table-wrapper');
+  if (wrapper) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'patients-list-toolbar';
+    toolbar.innerHTML = `
+      <div class="patients-list-meta">
+        <strong>Pacientes ativos</strong>
+        <span><span id="patient-count">0</span> cadastrados</span>
+      </div>
+      <label class="patients-search" for="patients-search-input">
+        <span aria-hidden="true">⌕</span>
+        <input id="patients-search-input" type="search" autocomplete="off" placeholder="Buscar nome, CPF ou telefone" aria-label="Filtrar pacientes">
+      </label>`;
+    listCard.insertBefore(toolbar, wrapper);
+    document.getElementById('patients-search-input')?.addEventListener('input', event => filterPatientsTable(event.target.value));
+  }
+}
+
 function carregarPacientes() {
+  ensurePatientsUi();
   const rows = DB.query('SELECT * FROM pacientes WHERE ativo=1 ORDER BY nome');
   const tbody = document.getElementById('tabela-pacientes');
   tbody.innerHTML = rows.map(r => {
+    const phone = r.celular || r.telefone || '-';
+    const search = escapeHTML([r.nome, r.cpf, r.celular, r.telefone, r.email].filter(Boolean).join(' '));
     const alergiaHtml = r.alergias
-      ? `<span style="color:#C62828;font-weight:700;">⚠️ ${escapeHTML(r.alergias)}</span>`
-      : `<span class="text-muted">Nenhuma</span>`;
+      ? `<span class="patient-allergy-badge has-allergy">Alergia: ${escapeHTML(r.alergias)}</span>`
+      : `<span class="patient-allergy-badge">Sem alergias registradas</span>`;
     return `
-      <tr onclick="selecionarPaciente(${r.id})" style="cursor:pointer">
-        <td>${r.id}</td>
-        <td><strong>${escapeHTML(r.nome)}</strong></td>
+      <tr data-patient-id="${r.id}" data-patient-search="${search}" onclick="selecionarPaciente(${r.id})" style="cursor:pointer">
+        <td class="patient-id-cell">#${r.id}</td>
+        <td>
+          <div class="patient-identity">
+            <span class="patient-avatar" aria-hidden="true">${patientInitials(r.nome)}</span>
+            <span class="patient-identity-copy"><strong>${escapeHTML(r.nome)}</strong><small>Paciente ativo</small></span>
+          </div>
+        </td>
         <td>${escapeHTML(r.cpf || '-')}</td>
-        <td>${escapeHTML(r.celular || r.telefone || '-')}</td>
+        <td>${escapeHTML(phone)}</td>
         <td>${alergiaHtml}</td>
         <td>
-          <button class="btn btn-info btn-sm" onclick="event.stopPropagation();abrirProntuarioPaciente(${r.id})">PEP 📋</button>
+          <button class="btn btn-secondary btn-sm patient-pep-button" onclick="event.stopPropagation();abrirProntuarioPaciente(${r.id})">PEP</button>
         </td>
       </tr>`;
   }).join('');
+
+  const currentFilter = document.getElementById('patients-search-input')?.value || '';
+  filterPatientsTable(currentFilter);
 }
 
 function selecionarPaciente(id) {
   const r = DB.query('SELECT * FROM pacientes WHERE id=?', [id])[0];
   if (!r) return;
+  document.querySelectorAll('#tabela-pacientes tr.selected').forEach(row => row.classList.remove('selected'));
+  document.querySelector(`#tabela-pacientes tr[data-patient-id="${Number(id)}"]`)?.classList.add('selected');
   document.getElementById('pac-id').value = r.id;
   document.getElementById('pac-nome').value = r.nome || '';
   document.getElementById('pac-cpf').value = r.cpf || '';
@@ -51,6 +142,7 @@ function limparPaciente() {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+  document.querySelectorAll('#tabela-pacientes tr.selected').forEach(row => row.classList.remove('selected'));
 }
 
 function salvarPaciente() {
