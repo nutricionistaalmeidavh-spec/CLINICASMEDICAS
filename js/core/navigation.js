@@ -52,6 +52,7 @@
     'js/domains/workflow-completion.js',
     'js/domains/backup-restore-coordinator.js',
     'js/domains/clinic-network-workflow.js',
+    'js/domains/commercial-services.js',
   ];
 
   function loadDomainScripts() {
