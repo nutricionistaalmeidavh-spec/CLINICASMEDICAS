@@ -2,6 +2,8 @@
   const bridge = () => root.electronAPI?.clinicNetwork || null;
   let lastStatus = null;
   let clientMode = false;
+  let hubReloadQueue = Promise.resolve();
+  let removeHubMutationListener = null;
 
   async function status() {
     const api = bridge();
@@ -46,6 +48,33 @@
     throw new Error(result?.error || 'Falha ao sincronizar alteração com o Clinic Hub.');
   }
 
+  function refreshViewAfterHubMutation(change) {
+    if (typeof document === 'undefined') return;
+    const activePage = document.querySelector('.page.active')?.id || '';
+    const command = String(change?.command || '');
+    if (command.startsWith('agenda.') && activePage === 'page-agenda' && typeof root.recarregarVisaoAgendaAtual === 'function') {
+      root.recarregarVisaoAgendaAtual();
+    }
+    if (command.startsWith('patient.') && activePage === 'page-pacientes' && typeof root.carregarPacientes === 'function') {
+      root.carregarPacientes();
+    }
+    if (activePage === 'page-dashboard' && typeof root.carregarDashboard === 'function') root.carregarDashboard();
+    root.PlennusClinicNetworkStatus?.refresh?.();
+  }
+
+  async function applyHubMutation(change) {
+    if (!change || typeof change !== 'object') return { ok: false, ignored: true };
+    hubReloadQueue = hubReloadQueue.catch(() => {}).then(async () => {
+      const currentStatus = lastStatus || await status();
+      if (currentStatus?.mode !== 'hub') return { ok: true, ignored: true };
+      if (!root.DB?.reloadCanonicalClinic) throw new Error('Recarregamento do banco canônico indisponível.');
+      await root.DB.reloadCanonicalClinic();
+      refreshViewAfterHubMutation(change);
+      return { ok: true };
+    });
+    return hubReloadQueue;
+  }
+
   async function disconnect() {
     const api = bridge();
     try { if (api?.disconnect) await api.disconnect(); }
@@ -76,20 +105,38 @@
   }
 
   function isClientMode() { return clientMode || lastStatus?.mode === 'client'; }
+  function isRemoteProfessionalMode() {
+    if (!isClientMode()) return false;
+    const sessionRole = root.DB?.session?.()?.role;
+    const currentRole = typeof root.currentUser !== 'undefined' ? root.currentUser?.nivel : null;
+    return (sessionRole || currentRole) === 'medico';
+  }
   function cachedStatus() { return lastStatus ? { ...lastStatus } : null; }
+
+  function bindHubMutationListener() {
+    if (removeHubMutationListener) return;
+    const api = bridge();
+    if (!api?.onHubMutationApplied) return;
+    removeHubMutationListener = api.onHubMutationApplied(change => {
+      applyHubMutation(change).catch(error => console.error('Falha ao refletir mutação do Clinic Hub:', error));
+    });
+  }
 
   root.PlennusClinicNetwork = {
     status,
     authenticateRemoteProfessional,
     sync,
     mutate,
+    applyHubMutation,
     disconnect,
     discover,
     pair,
     isClientMode,
+    isRemoteProfessionalMode,
     cachedStatus
   };
 
+  bindHubMutationListener();
   if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => { status().catch(() => {}); }, { once: true });
   }
