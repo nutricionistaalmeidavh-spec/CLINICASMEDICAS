@@ -62,7 +62,7 @@ function createFocusClient({ fetchImpl = globalThis.fetch } = {}) {
   return {
     async testConnection({ connection, documentType }) {
       const type = core.validateDocumentType(documentType || connection?.documentType);
-      const result = await request({ connection, documentType: type, reference: 'PLENNUSCONNECTIONCHECK', method: 'GET' });
+      const result = await request({ connection, documentType: type, reference: 'FISCALCONNECTIONCHECK', method: 'GET' });
       if (result.status === 401) return { ok: false, authenticated: false, status: 401, error: 'Token fiscal inválido.' };
       if (result.status === 403) return { ok: false, authenticated: true, status: 403, error: 'Conta autenticada, mas sem permissão para este tipo de documento.' };
       if (result.status === 0) return result;
