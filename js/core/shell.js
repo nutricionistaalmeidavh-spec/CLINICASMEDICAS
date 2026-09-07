@@ -22,10 +22,62 @@
     appendStylesheet('link[data-plennus-operations]', 'css/operations.css', 'plennusOperations');
     appendStylesheet('link[data-plennus-odontology]', 'css/odontology.css', 'plennusOdontology');
     appendStylesheet('link[data-plennus-sage-modules]', 'css/sage-premium-modules.css', 'plennusSageModules');
+    appendStylesheet('link[data-plennus-sage-admin]', 'css/sage-premium-admin.css', 'plennusSageAdmin');
   }
 
   function addClass(target, className) {
     if (target && !target.classList.contains(className)) target.classList.add(className);
+  }
+
+  function applyAdministrativePremiumClasses() {
+    const professionals = document.getElementById('page-profissionais');
+    if (professionals) {
+      addClass(professionals, 'professionals-premium-page');
+      addClass(professionals.querySelector('.page-title'), 'admin-premium-title');
+      const cards = professionals.querySelectorAll(':scope > .card');
+      addClass(cards[0], 'professionals-premium-form');
+      addClass(cards[1], 'professionals-premium-table');
+    }
+
+    const insurance = document.getElementById('page-convenios');
+    if (insurance) {
+      addClass(insurance, 'insurance-premium-page');
+      addClass(insurance.querySelector('.page-title'), 'admin-premium-title');
+      const directCards = insurance.querySelectorAll(':scope > .card');
+      addClass(directCards[0], 'insurance-premium-form');
+      addClass(directCards[1], 'procedures-premium-form');
+      const catalogs = Array.from(insurance.children).find(child => child.classList?.contains('form-row'));
+      addClass(catalogs, 'insurance-premium-catalogs');
+    }
+
+    const documents = document.getElementById('page-documentos');
+    if (documents) {
+      addClass(documents, 'documents-premium-page');
+      addClass(documents.querySelector('.page-title'), 'admin-premium-title');
+      const cards = documents.querySelectorAll(':scope > .card');
+      addClass(cards[0], 'documents-premium-toolbar');
+      addClass(cards[1], 'documents-premium-editor-card');
+      addClass(documents.querySelector('#doc-editor'), 'documents-premium-editor');
+    }
+
+    const cash = document.getElementById('page-caixa');
+    if (cash) {
+      addClass(cash, 'cash-premium-page');
+      addClass(cash.querySelector('.page-title'), 'admin-premium-title');
+      addClass(cash.querySelector('.stats-row'), 'cash-premium-summary');
+      const cards = cash.querySelectorAll(':scope > .card');
+      addClass(cards[0], 'cash-premium-entry');
+      addClass(cards[1], 'cash-premium-ledger');
+    }
+
+    const payouts = document.getElementById('page-repasses');
+    if (payouts) {
+      addClass(payouts, 'payouts-premium-page');
+      addClass(payouts.querySelector('.page-title'), 'admin-premium-title');
+      const cards = payouts.querySelectorAll(':scope > .card');
+      addClass(cards[0], 'payouts-premium-entry');
+      addClass(cards[1], 'payouts-premium-ledger');
+    }
   }
 
   function applyPremiumModuleClasses() {
@@ -66,6 +118,8 @@
       const ledger = finance.querySelector('.operations-grid-2 + .card');
       addClass(ledger, 'finance-premium-ledger');
     }
+
+    applyAdministrativePremiumClasses();
   }
 
   function observePremiumModules() {
@@ -142,6 +196,6 @@
 
   root.PlennusShell = {
     PAGE_TITLES, ensureStylesheet, ensureShellTopbar, applyPremiumModuleClasses,
-    syncShellIdentity, setPageTitle, setupShell
+    applyAdministrativePremiumClasses, syncShellIdentity, setPageTitle, setupShell
   };
 })(typeof window !== 'undefined' ? window : globalThis);
