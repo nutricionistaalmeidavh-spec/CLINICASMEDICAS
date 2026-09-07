@@ -93,6 +93,7 @@
       root.PlennusCertificateDigital.mount({
         container: certificateMount,
         provider: root.PlennusCertificateDigital.getDefaultProvider(),
+        hostName: 'o Plennus Clinic',
         openExternal: url => root.electronAPI?.abrirUrlExterna?.(url)
       });
     }
@@ -141,6 +142,7 @@
       settingsContainer: settings?.fiscalMount || null,
       financeContainer,
       api,
+      referencePrefix: 'PLENNUS',
       hostAdapter: { loadFiscalProfile, saveFiscalProfile, listPatients }
     });
     mounted = true;
