@@ -16,19 +16,25 @@ test('remote professional can synchronize the appointment states used by the cur
   }));
 });
 
-test('remote professional workflow layer synchronizes clinical status and blocks administrative writes', () => {
+test('remote professional status is owned by orchestrator while network workflow blocks administrative writes', () => {
   const workflow = read('js/domains/clinic-network-workflow.js');
+  const orchestrator = read('js/domains/appointment-orchestrator.js');
   const navigation = read('js/core/navigation.js');
 
   assert.match(workflow, /isRemoteProfessionalMode/);
   assert.match(workflow, /bloquearOperacaoAdministrativaRemota/);
-  assert.match(workflow, /PlennusClinicNetwork\.mutate/);
-  assert.match(workflow, /agenda\.updateStatus/);
   for (const operation of ['agendarConsulta', 'salvarGrade', 'excluirGrade', 'salvarPaciente', 'excluirPaciente', 'marcarChegadaEspera']) {
     assert.match(workflow, new RegExp(operation));
   }
-  assert.match(workflow, /profissional_id/);
+  assert.doesNotMatch(workflow, /root\.mudarStatus\s*=/);
+  assert.doesNotMatch(workflow, /PlennusClinicNetwork\.mutate/);
+
+  assert.match(orchestrator, /root\.PlennusClinicNetwork\.mutate/);
+  assert.match(orchestrator, /agenda\.updateStatus/);
+  assert.match(orchestrator, /professionalId/);
+  assert.match(orchestrator, /root\.mudarStatus\s*=\s*async function mudarStatusPorWorkflow/);
   assert.match(navigation, /js\/domains\/clinic-network-workflow\.js/);
+  assert.match(navigation, /js\/domains\/appointment-orchestrator\.js/);
 });
 
 test('remote professional RPC rejects administrative agenda and patient mutations server-side', () => {

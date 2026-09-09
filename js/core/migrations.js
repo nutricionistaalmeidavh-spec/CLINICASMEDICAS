@@ -355,7 +355,8 @@
     const pending = getPendingMigrations(currentVersion);
     if (!pending.length) return { from: currentVersion, to: currentVersion, applied: [] };
     if (typeof beforeMigrate === 'function') {
-      const backup = await beforeMigrate({ from: currentVersion, to: CURRENT_SCHEMA_VERSION });
+      const targetVersion = MIGRATIONS.at(-1)?.version || CURRENT_SCHEMA_VERSION;
+      const backup = await beforeMigrate({ from: currentVersion, to: targetVersion });
       if (backup === false || backup?.ok === false) throw new Error('Pre-migration backup failed');
     }
     const applied = [];

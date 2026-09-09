@@ -30,7 +30,12 @@ async function createFixture() {
   db.close();
   return {
     getBytes: () => bytes,
-    setBytes: next => { bytes = Array.from(next); }
+    setBytes: next => { bytes = Array.from(next); },
+    inspect: sql => {
+      const current = new SQL.Database(new Uint8Array(bytes));
+      try { return current.exec(sql)?.[0]?.values || []; }
+      finally { current.close(); }
+    }
   };
 }
 
@@ -110,6 +115,14 @@ test('pairing -> login -> snapshot -> mutation -> offline queue -> reconnect kee
 
     const afterReconnect = await rpc('shared.snapshot', { sessionToken: login.sessionToken });
     assert.equal(afterReconnect.tables.agenda[0].status, 'realizado');
+    assert.deepEqual(storage.inspect("SELECT event_type,mutation_id,dispatched_at FROM workflow_domain_events WHERE mutation_id='e2e-realizado'"), [
+      ['appointment.completed', 'e2e-realizado', null]
+    ]);
+
+    const replay = await rpc('shared.mutate', offlineMutation);
+    assert.equal(replay.duplicate, true);
+    assert.equal(storage.inspect("SELECT COUNT(*) FROM workflow_domain_events WHERE mutation_id='e2e-realizado'")[0][0], 1);
+    assert.equal(storage.inspect("SELECT COUNT(*) FROM network_mutations WHERE mutation_id='e2e-realizado'")[0][0], 1);
   } finally {
     await transport.stop().catch(() => {});
   }

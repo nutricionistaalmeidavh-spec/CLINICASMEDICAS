@@ -1,17 +1,12 @@
 (function (root) {
   const originals = {
     agendarConsulta: root.agendarConsulta,
-    mudarStatus: root.mudarStatus,
-    marcarChegadaEspera: root.marcarChegadaEspera,
-    chamarParaAtendimento: root.chamarParaAtendimento,
     salvarGrade: root.salvarGrade,
     excluirGrade: root.excluirGrade,
     salvarPaciente: root.salvarPaciente,
     excluirPaciente: root.excluirPaciente,
     recarregarVisaoAgendaAtual: root.recarregarVisaoAgendaAtual
   };
-
-  const REMOTE_PROFESSIONAL_STATUSES = new Set(['atendimento', 'em_atendimento', 'realizado', 'finalizado']);
 
   function isRemoteProfessionalMode() {
     return Boolean(root.PlennusClinicNetwork?.isRemoteProfessionalMode?.());
@@ -21,46 +16,6 @@
     if (!isRemoteProfessionalMode()) return false;
     if (typeof root.alert === 'function') root.alert(message);
     return true;
-  }
-
-  function remoteSession() {
-    return root.DB?.session?.() || null;
-  }
-
-  function requireOwnAppointment(appointmentId) {
-    const row = root.DB?.query?.('SELECT id,profissional_id FROM agenda WHERE id=?', [appointmentId])?.[0];
-    if (!row) throw new Error('Agendamento não encontrado.');
-    const professionalId = Number(remoteSession()?.professionalId);
-    if (!professionalId || Number(row.profissional_id) !== professionalId) {
-      throw new Error('Este agendamento pertence a outro profissional.');
-    }
-    return row;
-  }
-
-  async function syncRemoteAppointmentStatus(appointmentId, status) {
-    if (!REMOTE_PROFESSIONAL_STATUSES.has(String(status || ''))) {
-      throw new Error('Esta mudança de status é responsabilidade da recepção.');
-    }
-    const row = requireOwnAppointment(appointmentId);
-    const previous = root.DB.query('SELECT status FROM agenda WHERE id=?', [appointmentId])?.[0]?.status || null;
-
-    root.DB.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [status, Number(appointmentId), Number(row.profissional_id)]);
-    originals.recarregarVisaoAgendaAtual?.();
-
-    try {
-      const result = await root.PlennusClinicNetwork.mutate('agenda.updateStatus', {
-        appointmentId: Number(appointmentId),
-        status: String(status)
-      });
-      root.PlennusClinicNetworkStatus?.refresh?.();
-      return result;
-    } catch (error) {
-      // Erros lógicos não devem deixar o espelho local divergente. Falha de transporte é
-      // convertida pelo processo principal em fila offline e retorna queued=true, sem cair aqui.
-      if (previous != null) root.DB.run('UPDATE agenda SET status=? WHERE id=?', [previous, Number(appointmentId)]);
-      originals.recarregarVisaoAgendaAtual?.();
-      throw error;
-    }
   }
 
   function applyRemoteUiGuards() {
@@ -115,33 +70,8 @@
     return originals.excluirPaciente?.apply(this, arguments);
   };
 
-  root.marcarChegadaEspera = function () {
-    if (bloquearOperacaoAdministrativaRemota('A chegada do paciente é registrada pela recepção.')) return false;
-    return originals.marcarChegadaEspera?.apply(this, arguments);
-  };
-
-  root.mudarStatus = async function (appointmentId, status) {
-    if (!isRemoteProfessionalMode()) return originals.mudarStatus?.apply(this, arguments);
-    try {
-      return await syncRemoteAppointmentStatus(appointmentId, status);
-    } catch (error) {
-      if (typeof root.alert === 'function') root.alert(error.message || 'Não foi possível atualizar o atendimento.');
-      return false;
-    }
-  };
-
-  root.chamarParaAtendimento = async function (appointmentId, patientId, professionalId) {
-    if (!isRemoteProfessionalMode()) return originals.chamarParaAtendimento?.apply(this, arguments);
-    try {
-      await syncRemoteAppointmentStatus(appointmentId, 'atendimento');
-      root.abrirProntuarioDaAgenda?.(patientId, professionalId);
-      return true;
-    } catch (error) {
-      if (typeof root.alert === 'function') root.alert(error.message || 'Não foi possível iniciar o atendimento.');
-      return false;
-    }
-  };
-
+  // Appointment status transitions, ownership checks and remote mutation dispatch
+  // are centralized in appointment-orchestrator.js.
   root.recarregarVisaoAgendaAtual = function () {
     const result = originals.recarregarVisaoAgendaAtual?.apply(this, arguments);
     applyRemoteUiGuards();
@@ -151,7 +81,6 @@
   root.PlennusClinicNetworkWorkflow = {
     isRemoteProfessionalMode,
     bloquearOperacaoAdministrativaRemota,
-    syncRemoteAppointmentStatus,
     applyRemoteUiGuards
   };
 })(typeof window !== 'undefined' ? window : globalThis);

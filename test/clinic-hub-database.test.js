@@ -23,7 +23,7 @@ async function fixture() {
       (1,'Dra Ana','ana','${crypto.createHash('sha256').update('senha123').digest('hex')}','medico',1,1),
       (2,'Admin','admin','${crypto.createHash('sha256').update('admin123').digest('hex')}','admin',1,NULL);
     INSERT INTO pacientes VALUES (10,'Paciente A','111',NULL,NULL,NULL,1,'pat-a'),(20,'Paciente B','222',NULL,NULL,NULL,1,'pat-b');
-    INSERT INTO agenda VALUES (100,10,1,'07/09/2026','09:00','agendado',NULL),(200,20,2,'07/09/2026','10:00','agendado',NULL);
+    INSERT INTO agenda VALUES (100,10,1,'07/09/2026','09:00','atendimento',NULL),(200,20,2,'07/09/2026','10:00','agendado',NULL);
     INSERT INTO configuracoes VALUES ('clinic_uid','clinic-x'),('nome_clinica','Clínica X'),('api_key_gemini','segredo');
   `);
   let bytes = Array.from(db.export());
@@ -62,15 +62,17 @@ test('professional snapshot filters patient and agenda rows and strips sensitive
   assert.equal(Object.prototype.hasOwnProperty.call(snapshot.tables, 'usuarios'), false);
 });
 
-test('shared mutation is idempotent by mutationId', async () => {
+test('shared mutation is idempotent by mutationId and stores canonical status', async () => {
   const data = await fixture();
   const service = hubDb.createClinicHubDatabaseService(data);
   const first = await service.mutate('medico', 1, 'agenda.updateStatus', { mutationId: 'mut-1', appointmentId: 100, status: 'finalizado' });
   const second = await service.mutate('medico', 1, 'agenda.updateStatus', { mutationId: 'mut-1', appointmentId: 100, status: 'finalizado' });
   assert.equal(first.duplicate, false);
   assert.equal(second.duplicate, true);
-  assert.deepEqual(await data.inspect("SELECT status FROM agenda WHERE id=100"), [['finalizado']]);
+  assert.equal(first.result.eventType, 'appointment.completed');
+  assert.deepEqual(await data.inspect("SELECT status FROM agenda WHERE id=100"), [['realizado']]);
   assert.equal((await data.inspect("SELECT COUNT(*) FROM network_mutations WHERE mutation_id='mut-1'"))[0][0], 1);
+  assert.equal((await data.inspect("SELECT COUNT(*) FROM workflow_domain_events WHERE mutation_id='mut-1' AND event_type='appointment.completed'"))[0][0], 1);
 });
 
 test('RPC controller allows only remote professional sessions', async () => {
