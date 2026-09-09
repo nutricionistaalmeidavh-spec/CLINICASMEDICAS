@@ -1,8 +1,13 @@
 const crypto = require('node:crypto');
 const initSqlJs = require('sql.js');
 const policy = require('./clinic-hub-policy');
+const { createWorkflowCore } = require('../modules/workflow-core/workflow-core');
+const { createSqliteWorkflowStore } = require('../modules/workflow-core/adapters/sqlite-store');
+const { createAppointmentWorkflowDefinition } = require('../domains/appointment-workflow-definition');
 
 const REMOTE_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const STATUS_ALIASES = Object.freeze({ em_atendimento: 'atendimento', finalizado: 'realizado' });
+const STATUS_TO_ACTION = Object.freeze({ atendimento: 'start', realizado: 'complete' });
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
@@ -18,6 +23,22 @@ function query(database, sql, params = []) {
 
 function tableExists(database, table) {
   return query(database, "SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table]).length > 0;
+}
+
+function normalizeAppointmentStatus(status) {
+  const value = String(status || '').trim();
+  return STATUS_ALIASES[value] || value;
+}
+
+function createHubWorkflowRuntime(database) {
+  const store = createSqliteWorkflowStore({
+    query: (sql, params = []) => query(database, sql, params),
+    run: (sql, params = []) => database.run(sql, params)
+  });
+  store.ensureSchema();
+  const core = createWorkflowCore({ store });
+  core.registerWorkflow('appointment', createAppointmentWorkflowDefinition());
+  return { core, store };
 }
 
 function professionalPatientIds(database, professionalId) {
@@ -105,7 +126,7 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
     });
   }
 
-  async function mutate(role, professionalId, action, payload = {}) {
+  async function mutate(role, professionalId, action, payload = {}, actor = {}) {
     policy.validateCommand(role, action, payload);
     const professional = Number(professionalId);
     if (!Number.isInteger(professional) || professional <= 0) throw new Error('Profissional inválido.');
@@ -117,34 +138,73 @@ function createClinicHubDatabaseService({ getBytes, setBytes } = {}) {
       const previous = query(database, 'SELECT result_json FROM network_mutations WHERE mutation_id=? LIMIT 1', [payload.mutationId])[0];
       if (previous) return { duplicate: true, result: previous.result_json ? JSON.parse(previous.result_json) : null };
 
+      let workflowRuntime = null;
+      let workflowExecution = null;
+      let appointment = null;
+      if (action === 'agenda.updateStatus') {
+        appointment = query(database, 'SELECT * FROM agenda WHERE id=? AND profissional_id=? LIMIT 1', [payload.appointmentId, professional])[0];
+        if (!appointment) throw new Error('Agendamento não encontrado para este profissional.');
+        const targetStatus = normalizeAppointmentStatus(payload.status);
+        const workflowAction = STATUS_TO_ACTION[targetStatus];
+        if (!workflowAction) throw new Error('Mudança remota de status não suportada pelo workflow.');
+        workflowRuntime = createHubWorkflowRuntime(database);
+        workflowExecution = workflowRuntime.core.execute({
+          workflow: 'appointment',
+          action: workflowAction,
+          aggregateId: Number(appointment.id),
+          currentState: normalizeAppointmentStatus(appointment.status),
+          actor: {
+            userId: actor.userId ?? null,
+            role: 'medico',
+            professionalId: professional
+          },
+          source: 'remote-professional',
+          mutationId: payload.mutationId,
+          payload: {
+            professionalId: professional,
+            patientId: Number(appointment.paciente_id) || null,
+            procedureId: appointment.procedimento_id == null ? null : Number(appointment.procedimento_id),
+            insuranceId: appointment.convenio_id == null ? null : Number(appointment.convenio_id)
+          }
+        });
+      }
+
       database.run('BEGIN');
       try {
         let result;
         if (action === 'agenda.updateStatus') {
+          const nextStatus = workflowExecution.transition.to;
           if (payload.chegadaEm != null && tableExists(database, 'agenda')) {
             const columns = query(database, 'PRAGMA table_info(agenda)').map(row => row.name);
             if (columns.includes('chegada_em')) {
-              database.run('UPDATE agenda SET status=?,chegada_em=? WHERE id=? AND profissional_id=?', [payload.status, payload.chegadaEm, payload.appointmentId, professional]);
+              database.run('UPDATE agenda SET status=?,chegada_em=? WHERE id=? AND profissional_id=?', [nextStatus, payload.chegadaEm, payload.appointmentId, professional]);
             } else {
-              database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [payload.status, payload.appointmentId, professional]);
+              database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [nextStatus, payload.appointmentId, professional]);
             }
           } else {
-            database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [payload.status, payload.appointmentId, professional]);
+            database.run('UPDATE agenda SET status=? WHERE id=? AND profissional_id=?', [nextStatus, payload.appointmentId, professional]);
           }
           if (database.getRowsModified() !== 1) throw new Error('Agendamento não encontrado para este profissional.');
-          result = { appointmentId: Number(payload.appointmentId), status: payload.status, chegadaEm: payload.chegadaEm || null };
+          workflowRuntime.core.appendEvent(workflowExecution.event);
+          result = {
+            appointmentId: Number(payload.appointmentId),
+            status: nextStatus,
+            chegadaEm: payload.chegadaEm || null,
+            eventId: workflowExecution.event.eventId,
+            eventType: workflowExecution.event.type
+          };
         } else if (action === 'agenda.upsert') {
-          const appointment = payload.appointment || {};
-          if (Number(appointment.profissional_id) !== professional) throw new Error('Agendamento pertence a outro profissional.');
-          if (appointment.id) {
+          const appointmentData = payload.appointment || {};
+          if (Number(appointmentData.profissional_id) !== professional) throw new Error('Agendamento pertence a outro profissional.');
+          if (appointmentData.id) {
             database.run(`UPDATE agenda SET paciente_id=?,data=?,hora=?,status=?,observacao=? WHERE id=? AND profissional_id=?`, [
-              appointment.paciente_id, appointment.data, appointment.hora, appointment.status || 'agendado', appointment.observacao || null, appointment.id, professional
+              appointmentData.paciente_id, appointmentData.data, appointmentData.hora, appointmentData.status || 'agendado', appointmentData.observacao || null, appointmentData.id, professional
             ]);
             if (database.getRowsModified() !== 1) throw new Error('Agendamento não encontrado para este profissional.');
-            result = { appointmentId: Number(appointment.id) };
+            result = { appointmentId: Number(appointmentData.id) };
           } else {
             database.run('INSERT INTO agenda (paciente_id,profissional_id,data,hora,status,observacao) VALUES (?,?,?,?,?,?)', [
-              appointment.paciente_id, professional, appointment.data, appointment.hora, appointment.status || 'agendado', appointment.observacao || null
+              appointmentData.paciente_id, professional, appointmentData.data, appointmentData.hora, appointmentData.status || 'agendado', appointmentData.observacao || null
             ]);
             result = { appointmentId: Number(query(database, 'SELECT last_insert_rowid() AS id')[0].id) };
           }
@@ -209,7 +269,13 @@ function createClinicHubRpcController({ databaseService, now = Date.now, session
     const session = requireSession(deviceId, payload.sessionToken);
     if (action === 'shared.snapshot') return databaseService.snapshot(session.role, session.professionalId);
     if (action === 'shared.mutate') {
-      const result = await databaseService.mutate(session.role, session.professionalId, payload.command, payload.data || {});
+      const result = await databaseService.mutate(
+        session.role,
+        session.professionalId,
+        payload.command,
+        payload.data || {},
+        { userId: session.userId }
+      );
       if (!result.duplicate) await onMutationApplied({ professionalId: session.professionalId, command: payload.command, data: payload.data || {}, result: result.result });
       return result;
     }
@@ -223,5 +289,6 @@ module.exports = {
   REMOTE_SESSION_TTL_MS,
   createClinicHubDatabaseService,
   createClinicHubRpcController,
-  professionalPatientIds
+  professionalPatientIds,
+  normalizeAppointmentStatus
 };
