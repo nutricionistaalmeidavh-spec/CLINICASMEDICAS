@@ -101,14 +101,24 @@
       return normalizeEventRow(query('SELECT * FROM workflow_domain_events WHERE event_id=? LIMIT 1', [String(eventId || '')])[0]);
     }
 
-    async function listPendingEvents({ limit = 100, aggregateType = null, aggregateId = null } = {}) {
-      const where = ['dispatched_at IS NULL'];
+    function listEventsQuery({ limit = 100, aggregateType = null, aggregateId = null } = {}, pendingOnly = false) {
+      const where = [];
       const params = [];
+      if (pendingOnly) where.push('dispatched_at IS NULL');
       if (aggregateType != null) { where.push('aggregate_type=?'); params.push(String(aggregateType)); }
       if (aggregateId != null) { where.push('aggregate_id=?'); params.push(String(aggregateId)); }
       const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 100));
       params.push(safeLimit);
-      return query(`SELECT * FROM workflow_domain_events WHERE ${where.join(' AND ')} ORDER BY occurred_at,event_id LIMIT ?`, params).map(normalizeEventRow);
+      const clause = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+      return query(`SELECT * FROM workflow_domain_events${clause} ORDER BY occurred_at,event_id LIMIT ?`, params).map(normalizeEventRow);
+    }
+
+    async function listPendingEvents(filters = {}) {
+      return listEventsQuery(filters, true);
+    }
+
+    async function listEvents(filters = {}) {
+      return listEventsQuery(filters, false);
     }
 
     async function markEventDispatched(eventId, dispatchedAt) {
@@ -150,6 +160,7 @@
       ensureSchema,
       appendEvent,
       getEvent,
+      listEvents,
       listPendingEvents,
       markEventDispatched,
       markEventError,
