@@ -308,6 +308,38 @@
         )`,
         `CREATE INDEX IF NOT EXISTS idx_orcamento_itens_status ON orcamento_odontologico_itens(orcamento_id,status)`
       ]
+    },
+    {
+      version: 4,
+      name: 'workflow_core_outbox',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS workflow_domain_events (
+          event_id TEXT PRIMARY KEY,
+          event_type TEXT NOT NULL,
+          aggregate_type TEXT NOT NULL,
+          aggregate_id TEXT NOT NULL,
+          mutation_id TEXT,
+          source TEXT NOT NULL,
+          actor_json TEXT,
+          payload_json TEXT,
+          occurred_at TEXT NOT NULL,
+          dispatched_at TEXT,
+          last_error TEXT
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_workflow_domain_events_pending
+          ON workflow_domain_events(dispatched_at, occurred_at)`,
+        `CREATE INDEX IF NOT EXISTS idx_workflow_domain_events_aggregate
+          ON workflow_domain_events(aggregate_type, aggregate_id, occurred_at)`,
+        `CREATE TABLE IF NOT EXISTS workflow_effects (
+          event_id TEXT NOT NULL,
+          effect_key TEXT NOT NULL,
+          aggregate_type TEXT NOT NULL,
+          aggregate_id TEXT NOT NULL,
+          applied_at TEXT NOT NULL,
+          meta_json TEXT,
+          PRIMARY KEY (event_id, effect_key)
+        )`
+      ]
     }
   ];
 
