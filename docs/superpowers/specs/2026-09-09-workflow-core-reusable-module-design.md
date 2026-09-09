@@ -35,6 +35,7 @@ CRUDs simples não devem ser obrigados a usar o módulo.
 10. Falha de um efeito não desfaz a transição principal já confirmada.
 11. O módulo não é event sourcing e não exige broker externo.
 12. Nenhuma dependência npm nova é necessária na v1.
+13. O core não controla transações de tabelas de domínio; a atomicidade entre estado do produto e outbox é coordenada pelo host usando a mesma conexão de banco.
 
 ## Estrutura
 
@@ -64,10 +65,10 @@ js/domains/
 
 ## API pública
 
-O ponto de entrada `workflow-core.js` expõe uma API única, tanto por CommonJS quanto por `globalThis.PlennusWorkflowCore`.
+O ponto de entrada `workflow-core.js` expõe uma API única, tanto por CommonJS quanto por `globalThis.WorkflowCore` no renderer. O nome global permanece neutro para que o diretório possa ser reutilizado sem renomear referências de produto.
 
 ```js
-const core = createWorkflowCore({
+const core = WorkflowCore.createWorkflowCore({
   store,
   idGenerator,
   clock,
@@ -86,11 +87,11 @@ core.inspect(aggregateType, aggregateId);
 
 Recebe:
 - `store`: adapter de persistência;
-- `idGenerator`: função que retorna ID único; default seguro fornecido pelo host;
-- `clock`: função que retorna ISO timestamp; default `new Date().toISOString()`;
+- `idGenerator`: função que retorna ID único; pode ser omitida somente quando `globalThis.crypto.randomUUID` estiver disponível;
+- `clock`: função que retorna ISO timestamp; default `() => new Date().toISOString()`;
 - `logger`: adapter opcional com `info`, `warn`, `error`.
 
-O core nunca assume `crypto.randomUUID()` diretamente no renderer sem fallback injetável.
+Se não houver `idGenerator` e o runtime não oferecer `crypto.randomUUID`, a criação do core falha explicitamente. O módulo não introduz gerador pseudoaleatório fraco como fallback.
 
 ## Definição de workflow
 
@@ -187,7 +188,7 @@ Campos obrigatórios:
 }
 ```
 
-`execute` valida e produz a transição/evento. Persistir o estado do aggregate de domínio continua responsabilidade do consumidor ou de uma transação coordenada pelo adapter do produto. O core não sabe em qual tabela a entidade vive.
+`execute` valida e produz a transição/evento. Persistir o estado do aggregate de domínio continua responsabilidade do consumidor. O core não sabe em qual tabela a entidade vive.
 
 ## `event-bus.js`
 
@@ -258,7 +259,7 @@ async function handler(event, context) {
 Regra de idempotência:
 
 ```text
-se domain_event_effects(event_id, effect_key) existe
+se workflow_effects(event_id, effect_key) existe
 → não executar novamente
 → status = skipped
 ```
@@ -277,7 +278,7 @@ markEventDispatched(eventId, dispatchedAt)
 markEventError(eventId, errorMessage)
 ```
 
-O core não exige que todo consumidor use outbox. O adapter `memory-store` permite uso simples em processos locais. Produtos com múltiplos módulos, offline, financeiro ou rede devem usar uma store durável.
+O core não exige que todo consumidor use uma store persistente. O adapter `memory-store` permite uso simples em processos locais e testes. Produtos com múltiplos módulos, offline, financeiro ou rede devem usar uma store durável.
 
 ## `reconciliation.js`
 
@@ -319,7 +320,7 @@ Métodos podem retornar valor imediato ou Promise. O Workflow Core normaliza com
 Uso:
 - testes;
 - protótipos;
-- workflows sem requisito de durabilidade.
+- workflows sem requisito de durabilidade entre reinícios.
 
 Implementação com `Map`, sem dependências externas.
 
@@ -331,17 +332,16 @@ Deve reproduzir as mesmas garantias lógicas do adapter SQLite:
 
 ## `sqlite-store.js`
 
-O adapter não importa `sql.js`. Recebe uma interface:
+O adapter não importa `sql.js`. Recebe uma interface mínima apontando para uma conexão já controlada pelo host:
 
 ```js
 createSqliteWorkflowStore({
   query(sql, params),
-  run(sql, params),
-  transact(callback)
+  run(sql, params)
 });
 ```
 
-`transact` é opcional para operações isoladas, mas obrigatório quando o consumidor pede persistência atômica entre mudança de aggregate e append da outbox.
+A store nunca chama `BEGIN`, `COMMIT` ou `ROLLBACK` por conta própria. Isso permite que a aplicação grave sua tabela de domínio e a outbox na mesma transação externa.
 
 Tabelas padrão:
 
@@ -381,18 +381,23 @@ Os nomes são genéricos para permitir copiar o módulo a outros sistemas sem re
 
 ## Atomicidade
 
-O módulo oferece uma primitiva de integração, não tenta atualizar tabelas de domínio por conta própria.
+O módulo não tenta atualizar tabelas de domínio e não inicia transações do banco do produto.
 
-O consumidor pode fazer:
+O host coordena a transação usando a mesma conexão passada ao `sqlite-store`:
 
 ```js
-store.transact(async tx => {
-  updateAggregate(tx, transition);
-  await tx.workflow.appendEvent(event);
-});
+DB.run('BEGIN');
+try {
+  DB.run('UPDATE agenda SET status=? WHERE id=?', [transition.to, appointmentId]);
+  workflowStore.appendEvent(event);
+  DB.run('COMMIT');
+} catch (error) {
+  DB.run('ROLLBACK');
+  throw error;
+}
 ```
 
-Para o Plennus, `agenda.status` e `workflow_domain_events` devem ser gravados na mesma transação canônica no Hub/standalone quando a operação for durável.
+Para o Plennus, `agenda.status` e `workflow_domain_events` devem ser gravados na mesma transação canônica no Hub/standalone.
 
 No modo profissional remoto, somente o Hub executa a transação compartilhada.
 
@@ -568,7 +573,7 @@ Modificados principalmente:
 ## Critérios de aceite
 
 1. Nenhum arquivo em `js/modules/workflow-core` contém termos ou imports específicos de clínica.
-2. Core pode ser carregado por `require()` em Node e como global no renderer.
+2. Core pode ser carregado por `require()` em Node e como `globalThis.WorkflowCore` no renderer.
 3. Workflow Core não depende de DOM/Electron/filesystem/network/sql.js.
 4. Memory adapter e SQLite adapter passam a mesma suíte comportamental de store.
 5. Definições de workflow são declarativas e registradas externamente.
@@ -579,6 +584,7 @@ Modificados principalmente:
 10. Clinic Hub continua autoridade operacional e `clinical.db` permanece local ao profissional.
 11. Nenhuma dependência externa nova é adicionada na v1.
 12. O módulo possui documentação suficiente para ser copiado/reutilizado em outro produto sem conhecer o Plennus.
+13. O adapter SQLite não abre nem finaliza transações do produto.
 
 ## Não objetivos
 
