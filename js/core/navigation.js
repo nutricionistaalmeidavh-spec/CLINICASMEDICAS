@@ -64,6 +64,8 @@
     'js/domains/backup-restore-coordinator.js',
     'js/domains/clinic-network-workflow.js',
     'js/domains/appointment-orchestrator.js',
+    'js/domains/appointment-effects.js',
+    'js/domains/appointment-reconciliation.js',
     'js/domains/commercial-services.js',
   ];
 
