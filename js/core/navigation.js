@@ -1,5 +1,14 @@
 (function (root) {
   const CORE_SCRIPTS = [
+    'js/modules/workflow-core/errors.js',
+    'js/modules/workflow-core/event-bus.js',
+    'js/modules/workflow-core/workflow-engine.js',
+    'js/modules/workflow-core/effect-runner.js',
+    'js/modules/workflow-core/outbox.js',
+    'js/modules/workflow-core/reconciliation.js',
+    'js/modules/workflow-core/adapters/memory-store.js',
+    'js/modules/workflow-core/adapters/sqlite-store.js',
+    'js/modules/workflow-core/workflow-core.js',
     'js/core/data-isolation.js',
     'js/core/clinic-network-client.js',
     'js/core/database-isolation-router-safe.js',
@@ -18,6 +27,7 @@
   ];
 
   const DOMAIN_SCRIPTS = [
+    'js/domains/appointment-workflow-definition.js',
     'js/domains/dashboard.js',
     'js/domains/dashboard-role-isolation.js',
     'js/domains/clinic-network-status.js',
