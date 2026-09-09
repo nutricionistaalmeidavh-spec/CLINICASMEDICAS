@@ -19,6 +19,7 @@
     'js/core/supernumerary-model.js',
     'js/core/migrations.js',
     'js/core/supernumerary-migration.js',
+    'js/core/workflow-core-migration.js',
     'js/core/audit.js',
     'js/core/import-model.js',
     'js/core/document-renderer.js',
