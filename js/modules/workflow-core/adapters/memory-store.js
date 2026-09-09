@@ -32,14 +32,22 @@
       return clone(events.get(String(eventId || '')) || null);
     }
 
-    async function listPendingEvents({ limit = 100, aggregateType = null, aggregateId = null } = {}) {
+    function filterEvents({ limit = 100, aggregateType = null, aggregateId = null } = {}, pendingOnly = false) {
       return [...events.values()]
-        .filter(event => !event.dispatchedAt)
+        .filter(event => !pendingOnly || !event.dispatchedAt)
         .filter(event => aggregateType == null || event.aggregateType === String(aggregateType))
         .filter(event => aggregateId == null || event.aggregateId === String(aggregateId))
         .sort((a, b) => String(a.occurredAt || '').localeCompare(String(b.occurredAt || '')))
         .slice(0, Math.max(0, Number(limit) || 0))
         .map(clone);
+    }
+
+    async function listPendingEvents(filters = {}) {
+      return filterEvents(filters, true);
+    }
+
+    async function listEvents(filters = {}) {
+      return filterEvents(filters, false);
     }
 
     async function markEventDispatched(eventId, dispatchedAt) {
@@ -90,6 +98,7 @@
     return {
       appendEvent,
       getEvent,
+      listEvents,
       listPendingEvents,
       markEventDispatched,
       markEventError,
