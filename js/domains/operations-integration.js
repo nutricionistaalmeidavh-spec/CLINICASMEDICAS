@@ -75,21 +75,8 @@
       };
     }
 
-    if (typeof root.mudarStatus === 'function') {
-      const originalChangeStatus = root.mudarStatus;
-      root.mudarStatus = function integratedChangeStatus(id, status, ...rest) {
-        const dentalHandled = root.PlennusDentalFinance?.isDentalAppointment(id) === true;
-        const result = originalChangeStatus.call(this, id, status, ...rest);
-        if (dentalHandled) root.PlennusDentalFinance?.onAppointmentStatusChanged(id, status);
-        root.PlennusOdontology?.onAppointmentStatusChanged(id, status);
-        root.PlennusCRM?.onAppointmentStatusChanged(id, status);
-        if (!dentalHandled) root.PlennusFinanceAdvanced?.onAppointmentStatusChanged(id, status);
-        if (status === 'realizado') root.PlennusInventory?.consumeForAppointment(id);
-        if (status === 'cancelado' || status === 'realizado') root.PlennusWhatsAppAutomation?.cancelAppointmentMessages(id);
-        return result;
-      };
-    }
-
+    // Appointment status transitions are owned exclusively by appointment-orchestrator.js.
+    // This integration layer only decorates scheduling fields and WhatsApp entry points.
     if (typeof root.enviarMensagemWhatsApp === 'function') {
       const originalSend = root.enviarMensagemWhatsApp;
       root.enviarMensagemWhatsApp = function integratedWhatsApp(agendaId) {
