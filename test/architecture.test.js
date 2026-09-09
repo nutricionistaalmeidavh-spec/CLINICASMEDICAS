@@ -6,6 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 
 const DOMAIN_PATHS = [
+  'js/domains/appointment-workflow-definition.js',
   'js/domains/dashboard.js',
   'js/domains/patients.js',
   'js/domains/professionals.js',
@@ -31,6 +32,9 @@ const DOMAIN_PATHS = [
   'js/domains/whatsapp-automation.js',
   'js/domains/whatsapp-recurring.js',
   'js/domains/operations-integration.js',
+  'js/domains/appointment-orchestrator.js',
+  'js/domains/appointment-effects.js',
+  'js/domains/appointment-reconciliation.js',
 ];
 
 const STATIC_CORE_PATHS = [
@@ -42,10 +46,20 @@ const STATIC_CORE_PATHS = [
 ];
 
 const DYNAMIC_CORE_PATHS = [
+  'js/modules/workflow-core/errors.js',
+  'js/modules/workflow-core/event-bus.js',
+  'js/modules/workflow-core/workflow-engine.js',
+  'js/modules/workflow-core/effect-runner.js',
+  'js/modules/workflow-core/outbox.js',
+  'js/modules/workflow-core/reconciliation.js',
+  'js/modules/workflow-core/adapters/memory-store.js',
+  'js/modules/workflow-core/adapters/sqlite-store.js',
+  'js/modules/workflow-core/workflow-core.js',
   'js/core/clinical-model.js',
   'js/core/operations-model.js',
   'js/core/odontology-model.js',
   'js/core/migrations.js',
+  'js/core/workflow-core-migration.js',
   'js/core/audit.js',
   'js/core/import-model.js',
   'js/core/document-renderer.js',
@@ -110,14 +124,17 @@ test('Block A loaders are exposed without moving orchestration back to app.js', 
   assert.equal(app.includes('function registrarOportunidade'), false);
 });
 
-test('Block B odontology stays modular and integrates through stable seams', () => {
+test('Block B odontology stays modular and integrates through stable Workflow Core seams', () => {
   const navigation = fs.readFileSync(path.join(root, 'js/core/navigation.js'), 'utf8');
   const operations = fs.readFileSync(path.join(root, 'js/domains/operations-integration.js'), 'utf8');
+  const effects = fs.readFileSync(path.join(root, 'js/domains/appointment-effects.js'), 'utf8');
   const dental = fs.readFileSync(path.join(root, 'js/domains/odontology.js'), 'utf8');
   assert.ok(navigation.includes('odontologia:'), 'odontology page loader must be registered');
   assert.match(operations, /PlennusOdontology\?\.onAppointmentCreated/);
-  assert.match(operations, /PlennusDentalFinance\?\.onAppointmentStatusChanged/);
+  assert.match(effects, /dentalFinance\.onAppointmentStatusChanged\?\./);
+  assert.match(effects, /odontology\.onAppointmentStatusChanged\?\./);
   assert.match(dental, /resolveAppointmentCharge/);
+  assert.doesNotMatch(operations, /root\.mudarStatus\s*=/, 'legacy integration must not own status changes');
   const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   assert.equal(app.includes('odontograma'), false, 'odontology rules must not move back into app.js');
 });
