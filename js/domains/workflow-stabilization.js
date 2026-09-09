@@ -244,52 +244,7 @@
       }
     };
 
-    root.mudarStatus = function mudarStatusComTransicao(id, nextStatus) {
-      const appointment = root.DB.query('SELECT * FROM agenda WHERE id=?', [id])[0];
-      if (!appointment) return false;
-      if (!guards.canTransitionAppointment(appointment.status, nextStatus)) {
-        alert(`Transição inválida: ${appointment.status} → ${nextStatus}.`);
-        return false;
-      }
-      if (appointment.status === nextStatus) return true;
-      try {
-        transact(() => {
-          root.DB.run('UPDATE agenda SET status=? WHERE id=?', [nextStatus, id]);
-          const dental = root.PlennusDentalFinance?.isDentalAppointment(id) === true;
-          if (dental) root.PlennusDentalFinance?.onAppointmentStatusChanged(id, nextStatus);
-          root.PlennusOdontology?.onAppointmentStatusChanged(id, nextStatus);
-          root.PlennusCRM?.onAppointmentStatusChanged(id, nextStatus);
-          if (!dental) root.PlennusFinanceAdvanced?.onAppointmentStatusChanged(id, nextStatus);
-          if (nextStatus === 'realizado') root.PlennusInventory?.consumeForAppointment(id);
-        });
-        if (nextStatus === 'cancelado' || nextStatus === 'realizado') root.PlennusWhatsAppAutomation?.cancelAppointmentMessages(id);
-        root.recarregarVisaoAgendaAtual?.();
-        return true;
-      } catch (error) {
-        alert(`Não foi possível alterar o status: ${error.message}`);
-        return false;
-      }
-    };
-
-    root.marcarChegadaEspera = function marcarChegadaComTransicao(agendaId) {
-      const appointment = root.DB.query('SELECT status FROM agenda WHERE id=?', [agendaId])[0];
-      if (!appointment || !guards.canTransitionAppointment(appointment.status, 'espera')) return alert('Este agendamento não pode mais ser movido para a sala de espera.');
-      transact(() => root.DB.run('UPDATE agenda SET status=?,chegada_em=? WHERE id=?', ['espera', root.agoraHora(), agendaId]));
-      root.PlennusCRM?.onAppointmentStatusChanged(agendaId, 'espera');
-      root.recarregarVisaoAgendaAtual?.();
-    };
-
-    root.chamarParaAtendimento = function chamarVinculandoAgenda(agendaId, pacienteId, profissionalId) {
-      const appointment = root.DB.query('SELECT status FROM agenda WHERE id=?', [agendaId])[0];
-      if (!appointment || !guards.canTransitionAppointment(appointment.status, 'atendimento')) return alert('Este paciente não está em um estado válido para iniciar atendimento.');
-      transact(() => {
-        root.DB.run('UPDATE agenda SET status=? WHERE id=?', ['atendimento', agendaId]);
-        root.PlennusCRM?.onAppointmentStatusChanged(agendaId, 'atendimento');
-      });
-      root.recarregarVisaoAgendaAtual?.();
-      root.abrirProntuarioDaAgenda?.(pacienteId, profissionalId, agendaId);
-    };
-
+    // Status transitions are owned exclusively by appointment-orchestrator.js.
     root.carregarAgenda = function carregarAgendaFiltradaEOrdenada() {
       const body = document.getElementById('tabela-agenda');
       if (!body) return;
