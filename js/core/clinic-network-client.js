@@ -69,6 +69,7 @@
       if (currentStatus?.mode !== 'hub') return { ok: true, ignored: true };
       if (!root.DB?.reloadCanonicalClinic) throw new Error('Recarregamento do banco canônico indisponível.');
       await root.DB.reloadCanonicalClinic();
+      await root.PlennusAppointmentReconciliation?.onHubMutationApplied?.(change);
       refreshViewAfterHubMutation(change);
       return { ok: true };
     });
