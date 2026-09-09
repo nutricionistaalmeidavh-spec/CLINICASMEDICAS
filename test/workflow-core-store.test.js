@@ -109,3 +109,15 @@ test('sqlite adapter serializes an outbox event through injected query/run funct
   assert.ok(insert);
   assert.match(String(insert.params[6]), /"role":"admin"/);
 });
+
+test('sqlite adapter stays synchronous when the host database is synchronous', () => {
+  const { createSqliteWorkflowStore } = loadModule('../js/modules/workflow-core/adapters/sqlite-store', 'sqlite workflow store');
+  const store = createSqliteWorkflowStore({
+    query() { return []; },
+    run() {}
+  });
+
+  const result = store.appendEvent(sampleEvent({ eventId: 'evt-sync' }));
+
+  assert.equal(result instanceof Promise, false);
+});
